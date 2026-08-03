@@ -167,7 +167,7 @@ def process_pdf():
     if "file" not in request.files:
         return jsonify({"error": "No file"}), 400
 
-    file_bytes = request.files[\"file\"].read()
+    file_bytes = request.files["file"].read()
 
     try:
         text = extract_pdf_text(file_bytes)
