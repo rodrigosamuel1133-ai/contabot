@@ -34,4 +34,73 @@ Reglas:
 - Tarjeta de crédito = L27a"""
 
 
-def call_anthropic(messages,
+def call_anthropic(messages, pdf_b64=None, instruccion=None, model="claude-haiku-4-5-20251001"):
+    key = os.environ.get("ANTHROPIC_API_KEY", "")
+    headers = {
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    }
+    if pdf_b64:
+        headers["anthropic-beta"] = "pdfs-2024-09-25"
+        messages = [{"role": "user", "content": [
+            {"type": "document", "source": {
+                "type": "base64",
+                "media_type": "application/pdf",
+                "data": pdf_b64
+            }},
+            {"type": "text", "text": instruccion}
+        ]}]
+    payload = {
+        "model": model,
+        "max_tokens": 8096,
+        "system": SYSTEM_PROMPT,
+        "messages": messages
+    }
+    with httpx.Client(timeout=180) as client:
+        resp = client.post(API_URL, headers=headers, json=payload)
+        resp.raise_for_status()
+        return resp.json()["content"][0]["text"]
+
+
+@app.route("/")
+def index():
+    return send_from_directory("static", "index.html")
+
+
+@app.route("/api/process-pdf", methods=["POST"])
+def process_pdf():
+    if "file" not in request.files:
+        return jsonify({"error": "No file"}), 400
+    file_b64 = base64.standard_b64encode(request.files["file"].read()).decode("utf-8")
+    try:
+        result1 = call_anthropic([], pdf_b64=file_b64,
+            instruccion="Clasifica ÚNICAMENTE los INGRESOS de este estado de cuenta (depósitos, Zelle recibido, Square POS, créditos). NO incluyas ningún gasto. Incluye TODOS sin omitir ninguno.",
+            model="claude-sonnet-4-6")
+        result2 = call_anthropic([], pdf_b64=file_b64,
+            instruccion="Clasifica ÚNICAMENTE los GASTOS de este estado de cuenta (débitos, Zelle enviado, pagos, retiros ATM). NO incluyas ningún ingreso. Incluye TODOS sin omitir ninguno. Usa las líneas del IRS Schedule C.",
+            model="claude-sonnet-4-6")
+        return jsonify({"result": result1 + "\n" + result2})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/chat", methods=["POST"])
+def chat():
+    data = request.get_json()
+    try:
+        result = call_anthropic(data.get("messages", []))
+        return jsonify({"result": result})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok"})
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    print(f"Starting ContaBot on port {port}")
+    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
