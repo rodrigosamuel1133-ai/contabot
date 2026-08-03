@@ -1,6 +1,7 @@
 import os
-import base64
+import io
 import httpx
+import pdfplumber
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
@@ -33,35 +34,53 @@ Reglas:
 - Seguro = L15
 - Tarjeta de crédito = L27a
 
-IMPORTANTE: SOLO clasifica transacciones que aparecen EXPLÍCITAMENTE en el documento.
-NO inventes ni agregues transacciones que no estén en el estado de cuenta.
-NO agregues transacciones de ejemplo."""
+IMPORTANTE: SOLO clasifica transacciones que aparecen EXPLÍCITAMENTE en el texto.
+NO inventes transacciones. NO agregues ejemplos."""
 
 
-def call_anthropic(messages, pdf_b64=None, instruccion=None, model="claude-haiku-4-5-20251001"):
+def extract_pdf_text(file_bytes):
+    """Extrae texto del PDF con pdfplumber — más limpio que PDF.js"""
+    text = ""
+    with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+        for page in pdf.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
+    return text
+
+
+def chunk_text(text, max_chars=12000):
+    """Divide el texto en chunks por líneas para no perder transacciones"""
+    lines = text.split("\n")
+    chunks = []
+    current = ""
+    for line in lines:
+        if len(current) + len(line) > max_chars:
+            if current:
+                chunks.append(current)
+            current = line + "\n"
+        else:
+            current += line + "\n"
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def call_anthropic_text(prompt, system=None):
+    """Llama a Haiku con texto plano — barato y preciso"""
     key = os.environ.get("ANTHROPIC_API_KEY", "")
     headers = {
         "x-api-key": key,
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
     }
-    if pdf_b64:
-        headers["anthropic-beta"] = "pdfs-2024-09-25"
-        messages = [{"role": "user", "content": [
-            {"type": "document", "source": {
-                "type": "base64",
-                "media_type": "application/pdf",
-                "data": pdf_b64
-            }},
-            {"type": "text", "text": instruccion}
-        ]}]
     payload = {
-        "model": model,
+        "model": "claude-haiku-4-5-20251001",
         "max_tokens": 8096,
-        "system": SYSTEM_PROMPT,
-        "messages": messages
+        "system": system or SYSTEM_PROMPT,
+        "messages": [{"role": "user", "content": prompt}]
     }
-    with httpx.Client(timeout=180) as client:
+    with httpx.Client(timeout=120) as client:
         resp = client.post(API_URL, headers=headers, json=payload)
         resp.raise_for_status()
         return resp.json()["content"][0]["text"]
@@ -76,15 +95,32 @@ def index():
 def process_pdf():
     if "file" not in request.files:
         return jsonify({"error": "No file"}), 400
-    file_b64 = base64.standard_b64encode(request.files["file"].read()).decode("utf-8")
+
+    file_bytes = request.files["file"].read()
+
     try:
-        result1 = call_anthropic([], pdf_b64=file_b64,
-            instruccion="Clasifica ÚNICAMENTE los INGRESOS que aparecen en este estado de cuenta (depósitos, Zelle recibido, Square POS, créditos). NO incluyas gastos. NO inventes transacciones. SOLO las que están en el documento.",
-            model="claude-sonnet-4-6")
-        result2 = call_anthropic([], pdf_b64=file_b64,
-            instruccion="Clasifica ÚNICAMENTE los GASTOS que aparecen en este estado de cuenta (débitos, Zelle enviado, pagos, retiros ATM, subtracciones). NO incluyas ingresos. NO inventes transacciones. SOLO las que están en el documento. Usa líneas IRS Schedule C.",
-            model="claude-sonnet-4-6")
-        return jsonify({"result": result1 + "\n" + result2})
+        # Extraer texto con pdfplumber
+        text = extract_pdf_text(file_bytes)
+
+        if not text or len(text.strip()) < 50:
+            return jsonify({"error": "No se pudo extraer texto del PDF. Puede ser un PDF escaneado."}), 400
+
+        # Dividir en chunks si el texto es muy largo
+        chunks = chunk_text(text, max_chars=14000)
+
+        results = []
+        for i, chunk in enumerate(chunks):
+            part = "primera parte" if i == 0 else f"parte {i+1} de {len(chunks)}"
+            prompt = f"""Clasifica TODAS las transacciones de esta {part} del estado de cuenta.
+SOLO incluye transacciones que aparezcan explícitamente. NO inventes nada.
+
+{chunk}"""
+            result = call_anthropic_text(prompt)
+            results.append(result)
+
+        combined = "\n".join(results)
+        return jsonify({"result": combined})
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -92,9 +128,26 @@ def process_pdf():
 @app.route("/api/chat", methods=["POST"])
 def chat():
     data = request.get_json()
+    messages = data.get("messages", [])
+    if not messages:
+        return jsonify({"error": "Sin mensajes"}), 400
     try:
-        result = call_anthropic(data.get("messages", []))
-        return jsonify({"result": result})
+        key = os.environ.get("ANTHROPIC_API_KEY", "")
+        headers = {
+            "x-api-key": key,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        }
+        payload = {
+            "model": "claude-haiku-4-5-20251001",
+            "max_tokens": 1024,
+            "system": SYSTEM_PROMPT,
+            "messages": messages
+        }
+        with httpx.Client(timeout=60) as client:
+            resp = client.post(API_URL, headers=headers, json=payload)
+            resp.raise_for_status()
+            return jsonify({"result": resp.json()["content"][0]["text"]})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
