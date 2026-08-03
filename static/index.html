@@ -1123,13 +1123,29 @@ async function processFile(file){
       const fd=new FormData();fd.append('file',file);
       setProgress(50,'Analizando transacciones...');
       const res=await fetch('/api/process-pdf',{method:'POST',body:fd});
-      setProgress(85,'Finalizando...');
+      setProgress(85,'Verificando totales...');
       const data=await res.json();if(data.error)throw new Error(data.error);
       const txs=parseTx(data.result||'');
       txs.forEach(tx=>{S.txs.push({...tx,monto:parseFloat(tx.monto)||0,id:String(Date.now()+Math.random())});});
       if(txs.length){updateSummary();renderList();}
       setProgress(100);setTimeout(()=>setProgress(0),600);
-      addMsg('bot',`✅ **${txs.length} transacciones clasificadas.**\n\nRevisa la pestaña **Schedule C** para el resumen del IRS y **Gráficos** para visualizar.`);
+
+      // Show verification result
+      const v=data.verification||{};
+      let verMsg=`✅ **${txs.length} transacciones clasificadas.**`;
+      if(v.bank_deposits||v.bank_withdrawals){
+        if(v.ok){
+          verMsg+=`\n\n✅ **Verificación automática:** Los montos cuadran con el resumen del banco.`;
+          if(v.bank_deposits) verMsg+=`\n• Ingresos: $${v.tx_ingresos?.toLocaleString('en-US',{minimumFractionDigits:2})} ✓`;
+          if(v.bank_withdrawals) verMsg+=`\n• Gastos: $${v.tx_gastos?.toLocaleString('en-US',{minimumFractionDigits:2})} ✓`;
+        }else{
+          verMsg+=`\n\n⚠️ **Discrepancia detectada** — hay diferencia con el resumen del banco:`;
+          (v.warnings||[]).forEach(w=>{verMsg+='\n'+w;});
+          verMsg+=`\n\nRevisa las transacciones del panel derecho y usa ✏️ para corregir montos o 🗑️ para eliminar duplicados.`;
+        }
+      }
+      verMsg+=`\n\nRevisa **Schedule C** para el resumen del IRS.`;
+      addMsg('bot',verMsg);
     }else{
       let text='';
       if(ext==='csv')text=await file.text();
