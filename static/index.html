@@ -7,12 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
-  :root {
-    --navy:#082D57;--red:#DB0F2A;--gold:#C8972B;
-    --bg:#F7F8FA;--white:#fff;--gray-50:#F0F2F5;
-    --gray-200:#D8DCE3;--gray-400:#8A92A0;--gray-700:#3A4252;
-    --green:#0E7C4A;--green-light:#E8F7F0;--red-light:#FEF0F2;
-  }
+  :root{--navy:#082D57;--red:#DB0F2A;--gold:#C8972B;--bg:#F7F8FA;--white:#fff;--gray-50:#F0F2F5;--gray-200:#D8DCE3;--gray-400:#8A92A0;--gray-700:#3A4252;--green:#0E7C4A;--green-light:#E8F7F0;--red-light:#FEF0F2;}
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--gray-700);min-height:100vh;display:flex;flex-direction:column;}
   header{background:var(--navy);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
@@ -21,8 +16,6 @@
   .logo-text{color:white;font-size:18px;font-weight:600;}.logo-text span{color:var(--gold);}
   .header-tag{font-family:'IBM Plex Mono',monospace;font-size:11px;color:rgba(255,255,255,0.4);letter-spacing:1px;text-transform:uppercase;}
   .app{display:flex;flex:1;overflow:hidden;height:calc(100vh - 60px);}
-
-  /* SIDEBAR */
   .sidebar{width:240px;background:var(--white);border-right:1px solid var(--gray-200);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
   .sidebar-section{padding:14px 16px;border-bottom:1px solid var(--gray-200);}
   .sidebar-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--gray-400);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
@@ -44,8 +37,6 @@
   .mini-card-label{font-size:10px;color:var(--gray-400);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px;}
   .mini-card-value{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;}
   .positive{color:var(--green);}.negative{color:var(--red);}.neutral{color:var(--navy);}
-
-  /* MAIN */
   .main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
   .chat-area{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px;}
   .message{display:flex;gap:12px;max-width:800px;}
@@ -66,61 +57,77 @@
   #userInput::placeholder{color:var(--gray-400);}
   .send-btn{width:40px;height:40px;background:var(--navy);border:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:white;font-size:16px;}
   .send-btn:hover{background:#0a3d75;}.send-btn:disabled{background:var(--gray-200);cursor:not-allowed;}
-
   /* RIGHT PANEL */
-  .right-panel{width:300px;background:var(--white);border-left:1px solid var(--gray-200);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
-  .panel-header{padding:14px 16px;border-bottom:1px solid var(--gray-200);font-size:11px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.8px;font-family:'IBM Plex Mono',monospace;display:flex;justify-content:space-between;align-items:center;}
-  .tx-count{background:var(--navy);color:white;font-size:10px;padding:2px 7px;border-radius:10px;}
+  .right-panel{width:320px;background:var(--white);border-left:1px solid var(--gray-200);display:flex;flex-direction:column;flex-shrink:0;}
+  .panel-header{padding:12px 16px;border-bottom:1px solid var(--gray-200);display:flex;justify-content:space-between;align-items:center;}
+  .panel-title{font-size:11px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.8px;font-family:'IBM Plex Mono',monospace;}
+  .tx-count{background:var(--navy);color:white;font-size:10px;padding:2px 7px;border-radius:10px;font-family:'IBM Plex Mono',monospace;}
   .filter-bar{padding:8px 16px;border-bottom:1px solid var(--gray-200);display:flex;gap:4px;}
-  .filter-btn{border:none;background:none;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;transition:all .15s;color:var(--gray-400);}
+  .filter-btn{border:none;background:none;padding:4px 10px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;transition:all .15s;color:var(--gray-400);}
   .filter-btn.active{background:var(--navy);color:white;}
   .filter-btn:hover:not(.active){background:var(--gray-50);color:var(--navy);}
-
-  /* TRANSACTION ITEM */
-  .transaction-item{padding:10px 16px;border-bottom:1px solid var(--gray-50);cursor:pointer;transition:background .15s;}
+  /* SORT BAR */
+  .sort-bar{padding:8px 16px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;gap:6px;}
+  .sort-label{font-size:10px;color:var(--gray-400);font-family:'IBM Plex Mono',monospace;white-space:nowrap;}
+  .sort-select{flex:1;border:1px solid var(--gray-200);border-radius:6px;padding:5px 8px;font-size:11px;font-family:'IBM Plex Sans',sans-serif;color:var(--gray-700);background:white;cursor:pointer;outline:none;}
+  .sort-dir-btn{border:1px solid var(--gray-200);background:white;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px;color:var(--gray-700);white-space:nowrap;}
+  .sort-dir-btn:hover{background:var(--gray-50);border-color:var(--navy);}
+  /* TX LIST */
+  .tx-scroll{flex:1;overflow-y:auto;}
+  .transaction-item{padding:10px 16px;border-bottom:1px solid var(--gray-50);position:relative;}
   .transaction-item:hover{background:var(--gray-50);}
-  .tx-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;}
-  .tx-desc{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;}
-  .tx-amount{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;flex-shrink:0;}
-  .tx-meta{font-size:10px;color:var(--gray-400);display:flex;justify-content:space-between;align-items:center;}
+  .transaction-item:hover .tx-actions{opacity:1;}
+  .tx-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;}
+  .tx-desc{font-size:12px;font-weight:500;margin-bottom:3px;padding-right:56px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tx-bottom{display:flex;justify-content:space-between;align-items:center;}
+  .tx-cat{font-size:10px;color:var(--gray-400);}
   .tx-linea{font-family:'IBM Plex Mono',monospace;font-size:9px;background:var(--gray-50);border:1px solid var(--gray-200);padding:1px 5px;border-radius:3px;color:var(--navy);font-weight:600;}
-  .tx-edit-btn{font-size:10px;color:var(--navy);cursor:pointer;text-decoration:underline;opacity:0.6;}
-  .tx-edit-btn:hover{opacity:1;}
+  .tx-date{font-size:10px;color:var(--gray-400);font-family:'IBM Plex Mono',monospace;}
+  .tx-amount{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;flex-shrink:0;}
   .tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;}
   .tag.ingreso{background:var(--green-light);color:var(--green);}
   .tag.gasto{background:var(--red-light);color:var(--red);}
-  .amount-pos{color:var(--green);font-weight:600;font-family:'IBM Plex Mono',monospace;}
-  .amount-neg{color:var(--red);font-weight:600;font-family:'IBM Plex Mono',monospace;}
+  .amount-pos{color:var(--green);}
+  .amount-neg{color:var(--red);}
+  .tx-actions{position:absolute;right:10px;top:50%;transform:translateY(-50%);display:flex;gap:4px;opacity:0;transition:opacity .15s;}
+  .tx-act-btn{border:1px solid var(--gray-200);background:white;border-radius:5px;width:26px;height:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;}
+  .tx-act-btn:hover{border-color:var(--navy);}
+  .tx-act-btn.del:hover{border-color:var(--red);background:var(--red-light);}
   .empty-panel{padding:24px 16px;text-align:center;color:var(--gray-400);font-size:13px;line-height:1.6;}
   .empty-icon{font-size:28px;margin-bottom:8px;}
-
-  /* MODAL RECATEGORIZAR */
+  /* MODALS */
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;}
   .modal-overlay.open{display:flex;}
-  .modal{background:var(--white);border-radius:14px;padding:24px;width:420px;max-width:90vw;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2);}
+  .modal{background:white;border-radius:14px;padding:24px;width:460px;max-width:92vw;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);}
   .modal-title{font-size:15px;font-weight:600;color:var(--navy);margin-bottom:4px;}
-  .modal-desc{font-size:12px;color:var(--gray-400);margin-bottom:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .modal-section{font-size:10px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:1px;margin:12px 0 6px;}
-  .cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;}
-  .cat-btn{border:1px solid var(--gray-200);background:none;border-radius:8px;padding:8px 10px;text-align:left;cursor:pointer;transition:all .15s;font-family:'IBM Plex Sans',sans-serif;}
+  .modal-sub{font-size:12px;color:var(--gray-400);margin-bottom:16px;}
+  .modal-section{font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px;}
+  .cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .cat-btn{border:1px solid var(--gray-200);background:none;border-radius:8px;padding:9px 10px;text-align:left;cursor:pointer;transition:all .15s;font-family:'IBM Plex Sans',sans-serif;}
   .cat-btn:hover{border-color:var(--navy);background:#f0f4ff;}
-  .cat-btn.selected{border-color:var(--navy);background:var(--navy);color:white;}
-  .cat-btn .cat-linea{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;opacity:0.7;display:block;margin-bottom:2px;}
-  .cat-btn .cat-nombre{font-size:11px;font-weight:500;}
-  .modal-actions{display:flex;gap:8px;margin-top:16px;}
-  .btn-primary{flex:1;background:var(--navy);color:white;border:none;border-radius:8px;padding:10px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;}
+  .cat-btn.sel{border-color:var(--navy);background:var(--navy);color:white;}
+  .cat-linea{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;display:block;margin-bottom:2px;opacity:.7;}
+  .cat-nombre{font-size:11px;font-weight:500;}
+  .modal-actions{display:flex;gap:8px;margin-top:18px;}
+  .btn-primary{flex:1;background:var(--navy);color:white;border:none;border-radius:8px;padding:11px;font-size:13px;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;}
   .btn-primary:hover{background:#0a3d75;}
-  .btn-secondary{flex:1;background:none;color:var(--gray-400);border:1px solid var(--gray-200);border-radius:8px;padding:10px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;cursor:pointer;}
-
+  .btn-secondary{flex:1;background:none;color:var(--gray-400);border:1px solid var(--gray-200);border-radius:8px;padding:11px;font-size:13px;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;}
+  /* EDIT AMOUNT MODAL */
+  .amount-input{width:100%;border:2px solid var(--gray-200);border-radius:8px;padding:10px 14px;font-size:16px;font-family:'IBM Plex Mono',monospace;outline:none;margin-top:4px;}
+  .amount-input:focus{border-color:var(--navy);}
+  /* CONFIRM DELETE */
+  .confirm-modal{background:white;border-radius:14px;padding:28px;width:340px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,0.25);text-align:center;}
+  .confirm-icon{font-size:40px;margin-bottom:12px;}
+  .confirm-title{font-size:15px;font-weight:600;margin-bottom:8px;}
+  .confirm-desc{font-size:13px;color:var(--gray-400);margin-bottom:20px;line-height:1.5;}
+  .btn-danger{flex:1;background:var(--red);color:white;border:none;border-radius:8px;padding:11px;font-size:13px;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;}
+  .btn-danger:hover{background:#b50d23;}
   @media(max-width:768px){.sidebar{display:none;}.right-panel{display:none;}}
 </style>
 </head>
 <body>
 <header>
-  <div class="logo">
-    <div class="logo-icon">CB</div>
-    <div class="logo-text">Conta<span>Bot</span></div>
-  </div>
+  <div class="logo"><div class="logo-icon">CB</div><div class="logo-text">Conta<span>Bot</span></div></div>
   <div class="header-tag">Contabilidad IRS Schedule C · TAXPRO</div>
 </header>
 <div class="app">
@@ -158,7 +165,11 @@
         <div class="avatar bot">CB</div>
         <div class="bubble bot">
           👋 Hola, soy <strong>ContaBot</strong> — contabilidad IRS Schedule C con IA.<br><br>
-          Sube tu estado de cuenta en <strong>PDF</strong> y clasifico todas las transacciones automáticamente con las categorías del Schedule C. Puedes <strong>recategorizar</strong> cualquier transacción con un clic.<br><br>
+          Sube tu estado de cuenta en <strong>PDF</strong> y clasifico todo automáticamente. En el panel derecho puedes:<br>
+          • ✏️ <strong>Recategorizar</strong> — cambiar la categoría Schedule C<br>
+          • 💲 <strong>Editar monto</strong> — corregir el valor<br>
+          • 🗑️ <strong>Eliminar</strong> — borrar transacciones incorrectas<br>
+          • 🔃 <strong>Ordenar</strong> — por fecha, monto o categoría<br><br>
           ¿Por dónde empezamos?
         </div>
       </div>
@@ -172,82 +183,120 @@
   </main>
 
   <aside class="right-panel">
-    <div class="panel-header">Transacciones <span class="tx-count" id="txCount">0</span></div>
+    <div class="panel-header">
+      <span class="panel-title">Transacciones</span>
+      <span class="tx-count" id="txCount">0</span>
+    </div>
     <div class="filter-bar">
       <button class="filter-btn active" onclick="setFilter('all',this)">Todas</button>
       <button class="filter-btn" onclick="setFilter('INGRESO',this)">Ingresos</button>
       <button class="filter-btn" onclick="setFilter('GASTO',this)">Gastos</button>
     </div>
-    <div id="txList"><div class="empty-panel"><div class="empty-icon">🧾</div>Sube un estado de cuenta para comenzar.</div></div>
+    <div class="sort-bar">
+      <span class="sort-label">Orden:</span>
+      <select class="sort-select" id="sortBy" onchange="renderList()">
+        <option value="fecha">📅 Fecha</option>
+        <option value="monto">💲 Monto</option>
+        <option value="categoria">🏷️ Categoría</option>
+        <option value="tipo">📊 Tipo</option>
+      </select>
+      <button class="sort-dir-btn" id="sortDirBtn" onclick="toggleDir()">↓ DESC</button>
+    </div>
+    <div class="tx-scroll" id="txList">
+      <div class="empty-panel"><div class="empty-icon">🧾</div>Sube un estado de cuenta para comenzar.</div>
+    </div>
   </aside>
 </div>
 
-<!-- MODAL RECATEGORIZAR -->
-<div class="modal-overlay" id="modalOverlay">
+<!-- MODAL RECATEGORIZAR + EDITAR MONTO -->
+<div class="modal-overlay" id="editOverlay">
   <div class="modal">
-    <div class="modal-title">Recategorizar transacción</div>
-    <div class="modal-desc" id="modalDesc">—</div>
+    <div class="modal-title" id="editTitle">Editar transacción</div>
+    <div class="modal-sub" id="editSub"></div>
+
+    <div class="modal-section">💲 Monto</div>
+    <input type="number" class="amount-input" id="amountInput" step="0.01" min="0" placeholder="0.00">
 
     <div class="modal-section">📥 Ingresos</div>
     <div class="cat-grid">
-      <button class="cat-btn" onclick="selectCat('ING','Ingresos Brutos del Negocio','ING')">
-        <span class="cat-linea">ING</span>
-        <span class="cat-nombre">Ingresos Brutos</span>
+      <button class="cat-btn" id="cat-ING" onclick="selCat('ING','Ingresos Brutos del Negocio')">
+        <span class="cat-linea">ING</span><span class="cat-nombre">Ingresos Brutos</span>
       </button>
     </div>
-
     <div class="modal-section">📤 Gastos — Schedule C</div>
     <div class="cat-grid" id="catGrid"></div>
 
     <div class="modal-actions">
-      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
-      <button class="btn-primary" onclick="applyCategory()">Guardar</button>
+      <button class="btn-secondary" onclick="closeEdit()">Cancelar</button>
+      <button class="btn-primary" onclick="saveEdit()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRMAR ELIMINAR -->
+<div class="modal-overlay" id="deleteOverlay">
+  <div class="confirm-modal">
+    <div class="confirm-icon">🗑️</div>
+    <div class="confirm-title">Eliminar transacción</div>
+    <div class="confirm-desc" id="deleteDesc"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeDelete()">Cancelar</button>
+      <button class="btn-danger" onclick="confirmDelete()">Sí, eliminar</button>
     </div>
   </div>
 </div>
 
 <script>
-const CATEGORIAS = [
-  {linea:'L8',  nombre:'Publicidad',                  desc:'Advertising'},
-  {linea:'L9',  nombre:'Gastos de Vehículo',           desc:'Car & truck'},
-  {linea:'L10', nombre:'Comisiones y Honorarios',      desc:'Commissions & fees'},
-  {linea:'L11', nombre:'Mano de Obra Contrato',        desc:'Contract labor'},
-  {linea:'L15', nombre:'Seguros (no salud)',            desc:'Insurance'},
-  {linea:'L16a',nombre:'Interés — Hipoteca',           desc:'Interest mortgage'},
-  {linea:'L16b',nombre:'Interés — Otros',              desc:'Interest other'},
-  {linea:'L17', nombre:'Servicios Legales/Prof.',      desc:'Legal & professional'},
-  {linea:'L18', nombre:'Gastos de Oficina',            desc:'Office expense'},
-  {linea:'L20a',nombre:'Alquiler Vehículo/Equipo',     desc:'Rent vehicle/equip'},
-  {linea:'L20b',nombre:'Alquiler Propiedad Comercial', desc:'Rent business property'},
-  {linea:'L21', nombre:'Reparaciones y Mant.',         desc:'Repairs & maintenance'},
-  {linea:'L22', nombre:'Suministros',                  desc:'Supplies'},
-  {linea:'L23', nombre:'Impuestos y Licencias',        desc:'Taxes & licenses'},
-  {linea:'L24a',nombre:'Viajes',                       desc:'Travel'},
-  {linea:'L24b',nombre:'Comidas Deducibles',           desc:'Deductible meals'},
-  {linea:'L25', nombre:'Servicios Públicos',           desc:'Utilities'},
-  {linea:'L26', nombre:'Salarios',                     desc:'Wages'},
-  {linea:'L27a',nombre:'Otros Gastos',                 desc:'Other expenses'},
-  {linea:'L30', nombre:'Uso Hogar — Negocio',          desc:'Business use of home'},
+const CATS = [
+  {l:'L8', n:'Publicidad'},
+  {l:'L9', n:'Gastos de Vehículo'},
+  {l:'L10',n:'Comisiones y Honorarios'},
+  {l:'L11',n:'Mano de Obra Contrato'},
+  {l:'L15',n:'Seguros (no salud)'},
+  {l:'L16a',n:'Interés — Hipoteca'},
+  {l:'L16b',n:'Interés — Otros'},
+  {l:'L17',n:'Servicios Legales/Prof.'},
+  {l:'L18',n:'Gastos de Oficina'},
+  {l:'L20a',n:'Alquiler Vehículo/Equipo'},
+  {l:'L20b',n:'Alquiler Prop. Comercial'},
+  {l:'L21',n:'Reparaciones y Mant.'},
+  {l:'L22',n:'Suministros'},
+  {l:'L23',n:'Impuestos y Licencias'},
+  {l:'L24a',n:'Viajes'},
+  {l:'L24b',n:'Comidas Deducibles'},
+  {l:'L25',n:'Servicios Públicos'},
+  {l:'L26',n:'Salarios'},
+  {l:'L27a',n:'Otros Gastos'},
+  {l:'L30',n:'Uso Hogar — Negocio'},
 ];
-
-const state = { transactions: [], conversationHistory: [], filter: 'all', editingId: null, selectedCat: null };
 
 // Build category grid
 const grid = document.getElementById('catGrid');
-CATEGORIAS.forEach(c => {
-  const btn = document.createElement('button');
-  btn.className = 'cat-btn';
-  btn.id = 'cat-' + c.linea;
-  btn.onclick = () => selectCat(c.linea, c.nombre, c.linea);
-  btn.innerHTML = `<span class="cat-linea">${c.linea}</span><span class="cat-nombre">${c.nombre}</span>`;
-  grid.appendChild(btn);
+CATS.forEach(c => {
+  const b = document.createElement('button');
+  b.className='cat-btn'; b.id='cat-'+c.l;
+  b.onclick=()=>selCat(c.l,c.n);
+  b.innerHTML=`<span class="cat-linea">${c.l}</span><span class="cat-nombre">${c.n}</span>`;
+  grid.appendChild(b);
 });
 
-function fmt(n){ return '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+const S = {
+  txs: [],
+  history: [],
+  filter: 'all',
+  sortBy: 'fecha',
+  sortDir: 'desc',
+  editId: null,
+  deleteId: null,
+  selCat: null
+};
+
+// ── FORMAT ──
+function fmt(n){ return '$'+Math.abs(parseFloat(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
 function updateSummary(){
   let ing=0,gas=0;
-  state.transactions.forEach(t=>{ if(t.tipo==='INGRESO') ing+=t.monto; else gas+=t.monto; });
+  S.txs.forEach(t=>{ if(t.tipo==='INGRESO') ing+=parseFloat(t.monto)||0; else gas+=parseFloat(t.monto)||0; });
   const bal=ing-gas;
   document.getElementById('totalIngresos').textContent=fmt(ing);
   document.getElementById('totalGastos').textContent=fmt(gas);
@@ -256,93 +305,143 @@ function updateSummary(){
   b.className='mini-card-value '+(bal>=0?'positive':'negative');
 }
 
+// ── FILTER & SORT ──
 function setFilter(f,btn){
-  state.filter=f;
+  S.filter=f;
   document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active'); updateTxList();
+  btn.classList.add('active');
+  renderList();
 }
 
-function updateTxList(){
+function toggleDir(){
+  S.sortDir=S.sortDir==='asc'?'desc':'asc';
+  document.getElementById('sortDirBtn').textContent=S.sortDir==='asc'?'↑ ASC':'↓ DESC';
+  renderList();
+}
+
+function getSorted(){
+  let list=S.filter==='all'?[...S.txs]:S.txs.filter(t=>t.tipo===S.filter);
+  const by=document.getElementById('sortBy').value;
+  S.sortBy=by;
+  list.sort((a,b)=>{
+    let va,vb;
+    if(by==='monto'){va=parseFloat(a.monto)||0;vb=parseFloat(b.monto)||0;}
+    else if(by==='categoria'){va=(a.categoria||'').toLowerCase();vb=(b.categoria||'').toLowerCase();}
+    else if(by==='tipo'){va=a.tipo||'';vb=b.tipo||'';}
+    else{va=a.fecha||'';vb=b.fecha||'';}
+    if(va<vb)return S.sortDir==='asc'?-1:1;
+    if(va>vb)return S.sortDir==='asc'?1:-1;
+    return 0;
+  });
+  return list;
+}
+
+function renderList(){
   const list=document.getElementById('txList');
-  document.getElementById('txCount').textContent=state.transactions.length;
-  const filtered=state.filter==='all'?state.transactions:state.transactions.filter(t=>t.tipo===state.filter);
-  if(!filtered.length){ list.innerHTML='<div class="empty-panel"><div class="empty-icon">🧾</div>Sin transacciones.</div>'; return; }
-  list.innerHTML=[...filtered].reverse().slice(0,80).map(t=>{
-    const ac=t.tipo==='INGRESO'?'amount-pos':'amount-neg';
-    const sign=t.tipo==='INGRESO'?'+':'-';
+  document.getElementById('txCount').textContent=S.txs.length;
+  const sorted=getSorted();
+  if(!sorted.length){list.innerHTML='<div class="empty-panel"><div class="empty-icon">🧾</div>Sin transacciones.</div>';return;}
+  list.innerHTML=sorted.slice(0,200).map(t=>{
+    const isIng=t.tipo==='INGRESO';
+    const ac=isIng?'amount-pos':'amount-neg';
+    const sign=isIng?'+':'-';
     const linea=t.linea||'';
-    return `<div class="transaction-item" onclick="openModal('${t.id}')">
-      <div class="tx-header">
+    return `<div class="transaction-item">
+      <div class="tx-top">
         <span class="tag ${t.tipo.toLowerCase()}">${t.tipo}</span>
-        <span class="${ac}">${sign}${fmt(t.monto)}</span>
+        <span class="${ac} tx-amount">${sign}${fmt(t.monto)}</span>
       </div>
-      <div class="tx-desc" title="${t.descripcion}">${t.descripcion}</div>
-      <div class="tx-meta">
-        <span>${t.categoria||''} · ${t.fecha||''}</span>
-        ${linea ? `<span class="tx-linea">${linea}</span>` : ''}
+      <div class="tx-desc" title="${esc(t.descripcion)}">${esc(t.descripcion)}</div>
+      <div class="tx-bottom">
+        <span class="tx-cat">${esc(t.categoria||'')}</span>
+        <span style="display:flex;align-items:center;gap:4px;">
+          <span class="tx-date">${t.fecha||''}</span>
+          ${linea?`<span class="tx-linea">${linea}</span>`:''}
+        </span>
       </div>
-      <div style="font-size:10px;color:var(--navy);margin-top:3px;opacity:0.7;">✏️ Clic para recategorizar</div>
+      <div class="tx-actions">
+        <button class="tx-act-btn" onclick="openEdit('${t.id}')" title="Editar">✏️</button>
+        <button class="tx-act-btn del" onclick="openDelete('${t.id}')" title="Eliminar">🗑️</button>
+      </div>
     </div>`;
   }).join('');
 }
 
-// MODAL
-function openModal(id){
-  const tx = state.transactions.find(t=>t.id===id);
-  if(!tx) return;
-  state.editingId = id;
-  state.selectedCat = null;
-  document.getElementById('modalDesc').textContent = `${tx.descripcion} — ${sign(tx)}${fmt(tx.monto)}`;
-  // Reset selections
-  document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('selected'));
-  // Pre-select current
-  const current = document.getElementById('cat-'+tx.linea);
-  if(current){ current.classList.add('selected'); state.selectedCat = {linea:tx.linea, nombre:tx.categoria}; }
-  document.getElementById('modalOverlay').classList.add('open');
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── EDIT MODAL ──
+function openEdit(id){
+  const tx=S.txs.find(t=>t.id===id);
+  if(!tx)return;
+  S.editId=id; S.selCat=null;
+  document.getElementById('editTitle').textContent='✏️ Editar transacción';
+  document.getElementById('editSub').textContent=tx.descripcion;
+  document.getElementById('amountInput').value=parseFloat(tx.monto)||0;
+  document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('sel'));
+  const cur=document.getElementById('cat-'+(tx.linea||''));
+  if(cur){cur.classList.add('sel');S.selCat={l:tx.linea,n:tx.categoria};}
+  document.getElementById('editOverlay').classList.add('open');
 }
-
-function sign(tx){ return tx.tipo==='INGRESO'?'+':'-'; }
-
-function closeModal(){
-  document.getElementById('modalOverlay').classList.remove('open');
-  state.editingId = null;
-  state.selectedCat = null;
+function closeEdit(){document.getElementById('editOverlay').classList.remove('open');S.editId=null;S.selCat=null;}
+function selCat(l,n){
+  S.selCat={l,n};
+  document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('sel'));
+  const b=document.getElementById('cat-'+l);if(b)b.classList.add('sel');
 }
-
-function selectCat(linea, nombre, lineaCode){
-  state.selectedCat = {linea: lineaCode, nombre};
-  document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('selected'));
-  const btn = document.getElementById('cat-'+lineaCode);
-  if(btn) btn.classList.add('selected');
-}
-
-function applyCategory(){
-  if(!state.selectedCat || !state.editingId) return;
-  const tx = state.transactions.find(t=>t.id===state.editingId);
-  if(!tx) return;
-  tx.categoria = state.selectedCat.nombre;
-  tx.linea = state.selectedCat.linea;
-  tx.tipo = state.selectedCat.linea === 'ING' ? 'INGRESO' : 'GASTO';
-  closeModal();
-  updateTxList();
+function saveEdit(){
+  if(!S.editId)return;
+  const tx=S.txs.find(t=>t.id===S.editId);
+  if(!tx)return;
+  const newMonto=parseFloat(document.getElementById('amountInput').value);
+  if(!isNaN(newMonto)&&newMonto>=0) tx.monto=newMonto;
+  if(S.selCat){
+    tx.linea=S.selCat.l;
+    tx.categoria=S.selCat.n;
+    tx.tipo=S.selCat.l==='ING'?'INGRESO':'GASTO';
+  }
+  closeEdit();
+  renderList();
   updateSummary();
-  addMessage('bot', `✅ **${tx.descripcion}** recategorizado a **${tx.categoria}** (${tx.linea})`);
+  addMsg('bot',`✅ Actualizado: **${tx.descripcion}** → ${fmt(tx.monto)} · ${tx.categoria} (${tx.linea})`);
 }
+document.getElementById('editOverlay').addEventListener('click',function(e){if(e.target===this)closeEdit();});
 
-// Close modal on overlay click
-document.getElementById('modalOverlay').addEventListener('click', function(e){
-  if(e.target===this) closeModal();
-});
+// ── DELETE MODAL ──
+function openDelete(id){
+  const tx=S.txs.find(t=>t.id===id);if(!tx)return;
+  S.deleteId=id;
+  document.getElementById('deleteDesc').textContent=`¿Eliminar "${tx.descripcion}" por ${tx.tipo==='INGRESO'?'+':'-'}${fmt(tx.monto)}?`;
+  document.getElementById('deleteOverlay').classList.add('open');
+}
+function closeDelete(){document.getElementById('deleteOverlay').classList.remove('open');S.deleteId=null;}
+function confirmDelete(){
+  if(!S.deleteId)return;
+  const tx=S.txs.find(t=>t.id===S.deleteId);
+  S.txs=S.txs.filter(t=>t.id!==S.deleteId);
+  closeDelete();renderList();updateSummary();
+  if(tx)addMsg('bot',`🗑️ Eliminado: **${tx.descripcion}**`);
+}
+document.getElementById('deleteOverlay').addEventListener('click',function(e){if(e.target===this)closeDelete();});
 
+// ── PARSE TX ──
 function parseTx(text){
-  if(!text||typeof text!=='string') return [];
-  const matches=[...text.matchAll(/\[TX:(\{.*?\})\]/g)];
-  return matches.map(m=>{ try{ return JSON.parse(m[1]); }catch(e){ return null; } }).filter(Boolean);
+  if(!text||typeof text!=='string')return[];
+  // Match TX blocks — handle multi-line JSON
+  const matches=[...text.matchAll(/\[TX:(\{[^[\]]*?\})\]/g)];
+  return matches.map(m=>{
+    try{
+      // Clean and parse — strip line breaks inside JSON
+      const clean=m[1].replace(/[\r\n]+/g,' ');
+      return JSON.parse(clean);
+    }catch(e){return null;}
+  }).filter(t=>t&&t.monto&&t.tipo);
 }
-function cleanText(text){ if(!text) return ''; return text.replace(/\[TX:\{.*?\}\]/g,'').trim(); }
-function md(text){ return text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>'); }
 
-function addMessage(role,content,isTyping=false){
+function cleanText(t){return t?t.replace(/\[TX:\{[^[\]]*?\}\]/g,'').trim():'';}
+function md(t){return t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');}
+
+// ── CHAT ──
+function addMsg(role,content,isTyping=false){
   const area=document.getElementById('chatArea');
   const div=document.createElement('div');
   div.className='message'+(role==='user'?' user':'');
@@ -351,12 +450,12 @@ function addMessage(role,content,isTyping=false){
   av.textContent=role==='user'?'TÚ':'CB';
   const bubble=document.createElement('div');
   bubble.className='bubble '+(role==='user'?'user':'bot');
-  if(isTyping){ bubble.innerHTML='<div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>'; div.id='typing-indicator'; }
+  if(isTyping){bubble.innerHTML='<div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';div.id='typing-indicator';}
   else bubble.innerHTML=md(content);
-  div.appendChild(av); div.appendChild(bubble);
-  area.appendChild(div); area.scrollTop=area.scrollHeight;
+  div.appendChild(av);div.appendChild(bubble);
+  area.appendChild(div);area.scrollTop=area.scrollHeight;
 }
-function removeTyping(){ const e=document.getElementById('typing-indicator'); if(e) e.remove(); }
+function removeTyping(){const e=document.getElementById('typing-indicator');if(e)e.remove();}
 
 function setProgress(pct,label){
   const w=document.getElementById('progressWrap');
@@ -368,86 +467,84 @@ function setProgress(pct,label){
 async function callBackend(messages){
   const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages})});
   const data=await res.json();
-  if(data.error) throw new Error(data.error);
-  return data.result;
+  if(data.error)throw new Error(data.error);
+  return data.result||'';
 }
 
 async function sendMessage(override){
   const input=document.getElementById('userInput');
   const text=override||input.value.trim();
-  if(!text) return;
-  input.value=''; input.style.height='auto';
+  if(!text)return;
+  input.value='';input.style.height='auto';
   document.getElementById('sendBtn').disabled=true;
-  addMessage('user',text);
-  state.conversationHistory.push({role:'user',content:text});
-  addMessage('bot','',true);
+  addMsg('user',text);
+  S.history.push({role:'user',content:text});
+  addMsg('bot','',true);
   try{
-    const raw=await callBackend(state.conversationHistory);
+    const raw=await callBackend(S.history);
     const txs=parseTx(raw);
-    txs.forEach(tx=>{ if(tx&&tx.monto&&tx.tipo) state.transactions.push({...tx,id:String(Date.now()+Math.random())}); });
-    if(txs.length){ updateSummary(); updateTxList(); }
-    removeTyping(); addMessage('bot',cleanText(raw));
-    state.conversationHistory.push({role:'assistant',content:raw});
-  }catch(e){ removeTyping(); addMessage('bot','⚠️ Error: '+e.message); }
+    txs.forEach(tx=>{S.txs.push({...tx,monto:parseFloat(tx.monto)||0,id:String(Date.now()+Math.random())});});
+    if(txs.length){updateSummary();renderList();}
+    removeTyping();addMsg('bot',cleanText(raw));
+    S.history.push({role:'assistant',content:raw});
+  }catch(e){removeTyping();addMsg('bot','⚠️ Error: '+e.message);}
   document.getElementById('sendBtn').disabled=false;
 }
 
-function sendQuick(t){ sendMessage(t); }
-function handleKey(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendMessage(); } }
-function autoResize(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,100)+'px'; }
+function sendQuick(t){sendMessage(t);}
+function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,100)+'px';}
 
-// FILE UPLOAD
-function dragOver(e){ e.preventDefault(); document.getElementById('uploadZone').classList.add('drag-over'); }
-function dragLeave(){ document.getElementById('uploadZone').classList.remove('drag-over'); }
-function dropFile(e){ e.preventDefault(); document.getElementById('uploadZone').classList.remove('drag-over'); const f=e.dataTransfer.files[0]; if(f) processFile(f); }
-function handleFile(e){ const f=e.target.files[0]; if(f) processFile(f); e.target.value=''; }
+// ── FILE UPLOAD ──
+function dragOver(e){e.preventDefault();document.getElementById('uploadZone').classList.add('drag-over');}
+function dragLeave(){document.getElementById('uploadZone').classList.remove('drag-over');}
+function dropFile(e){e.preventDefault();document.getElementById('uploadZone').classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f)processFile(f);}
+function handleFile(e){const f=e.target.files[0];if(f)processFile(f);e.target.value='';}
 
 async function processFile(file){
   const ext=file.name.split('.').pop().toLowerCase();
-  addMessage('bot',`📂 Recibí <strong>${file.name}</strong>. Clasificando con IRS Schedule C...`);
+  addMsg('bot',`📂 Recibí <strong>${file.name}</strong>. Clasificando con IRS Schedule C...`);
   setProgress(15,'Enviando al servidor...');
   try{
     if(ext==='pdf'){
-      const formData=new FormData();
-      formData.append('file',file);
-      setProgress(40,'Procesando ingresos...');
-      const res=await fetch('/api/process-pdf',{method:'POST',body:formData});
-      setProgress(80,'Procesando gastos...');
+      const fd=new FormData();fd.append('file',file);
+      setProgress(50,'Analizando transacciones...');
+      const res=await fetch('/api/process-pdf',{method:'POST',body:fd});
+      setProgress(85,'Finalizando...');
       const data=await res.json();
-      if(data.error) throw new Error(data.error);
+      if(data.error)throw new Error(data.error);
       const raw=data.result||'';
       const txs=parseTx(raw);
-      txs.forEach(tx=>{ if(tx&&tx.monto&&tx.tipo) state.transactions.push({...tx,id:String(Date.now()+Math.random())}); });
-      if(txs.length){ updateSummary(); updateTxList(); }
-      setProgress(100); setTimeout(()=>setProgress(0),500);
-      addMessage('bot',`✅ **${txs.length} transacciones clasificadas con Schedule C.**\n\nPuedes hacer clic en cualquier transacción del panel derecho para recategorizarla.\n\n`+cleanText(raw));
-    } else {
+      txs.forEach(tx=>{S.txs.push({...tx,monto:parseFloat(tx.monto)||0,id:String(Date.now()+Math.random())});});
+      if(txs.length){updateSummary();renderList();}
+      setProgress(100);setTimeout(()=>setProgress(0),600);
+      addMsg('bot',`✅ **${txs.length} transacciones clasificadas.**\n\nUsa ✏️ para editar monto o categoría, 🗑️ para eliminar.`);
+    }else{
       let text='';
-      if(ext==='csv') text=await file.text();
-      else{ const buf=await file.arrayBuffer(); const wb=XLSX.read(buf,{type:'array'}); wb.SheetNames.forEach(s=>{ text+=XLSX.utils.sheet_to_csv(wb.Sheets[s])+'\n'; }); }
+      if(ext==='csv')text=await file.text();
+      else{const buf=await file.arrayBuffer();const wb=XLSX.read(buf,{type:'array'});wb.SheetNames.forEach(s=>{text+=XLSX.utils.sheet_to_csv(wb.Sheets[s])+'\n';});}
       setProgress(60,'Clasificando...');
-      const prompt=`Clasifica TODAS las transacciones de este estado de cuenta con líneas IRS Schedule C:\n\n${text.slice(0,12000)}`;
-      state.conversationHistory.push({role:'user',content:prompt});
-      const raw=await callBackend(state.conversationHistory);
+      S.history.push({role:'user',content:`Clasifica TODAS las transacciones de este estado de cuenta con líneas IRS Schedule C:\n\n${text.slice(0,14000)}`});
+      const raw=await callBackend(S.history);
       const txs=parseTx(raw);
-      txs.forEach(tx=>{ if(tx&&tx.monto&&tx.tipo) state.transactions.push({...tx,id:String(Date.now()+Math.random())}); });
-      if(txs.length){ updateSummary(); updateTxList(); }
-      state.conversationHistory.push({role:'assistant',content:raw});
-      setProgress(100); setTimeout(()=>setProgress(0),500);
-      addMessage('bot',`✅ **${txs.length} transacciones clasificadas.**\n\n`+cleanText(raw));
+      txs.forEach(tx=>{S.txs.push({...tx,monto:parseFloat(tx.monto)||0,id:String(Date.now()+Math.random())});});
+      if(txs.length){updateSummary();renderList();}
+      S.history.push({role:'assistant',content:raw});
+      setProgress(100);setTimeout(()=>setProgress(0),600);
+      addMsg('bot',`✅ **${txs.length} transacciones clasificadas.**`);
     }
-  }catch(e){ setProgress(0); addMessage('bot','⚠️ Error: '+e.message); }
+  }catch(e){setProgress(0);addMsg('bot','⚠️ Error: '+e.message);}
 }
 
 function exportCSV(){
-  if(!state.transactions.length){ addMessage('bot','No hay transacciones para exportar.'); return; }
+  if(!S.txs.length){addMsg('bot','No hay transacciones para exportar.');return;}
   const rows=[['Fecha','Tipo','Descripcion','Categoria','Linea Schedule C','Monto']];
-  state.transactions.forEach(t=>rows.push([t.fecha||'',t.tipo,t.descripcion,t.categoria||'',t.linea||'',t.monto]));
-  const csv=rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+  getSorted().forEach(t=>rows.push([t.fecha||'',t.tipo,t.descripcion,t.categoria||'',t.linea||'',t.monto]));
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download='contabot-schedule-c.csv'; a.click();
-  addMessage('bot',`✅ CSV exportado con columna **Línea Schedule C** — listo para taxes.`);
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download='contabot-schedule-c.csv';a.click();
+  addMsg('bot',`✅ CSV exportado con **${S.txs.length}** transacciones.`);
 }
 </script>
 </body>
