@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import httpx
 import pdfplumber
 from flask import Flask, request, jsonify, send_from_directory
@@ -34,12 +35,13 @@ Reglas:
 - Seguro = L15
 - Tarjeta de crédito = L27a
 
-IMPORTANTE: SOLO clasifica transacciones que aparecen EXPLÍCITAMENTE en el texto.
+IMPORTANTE: USA LOS MONTOS EXACTOS tal como aparecen en el estado de cuenta.
+SOLO clasifica transacciones que aparecen EXPLÍCITAMENTE en el texto.
 NO inventes transacciones. NO agregues ejemplos."""
 
 
 def extract_pdf_text(file_bytes):
-    """Extrae texto del PDF con pdfplumber — más limpio que PDF.js"""
+    """Extrae texto del PDF con pdfplumber"""
     text = ""
     with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
         for page in pdf.pages:
@@ -49,8 +51,58 @@ def extract_pdf_text(file_bytes):
     return text
 
 
-def chunk_text(text, max_chars=12000):
-    """Divide el texto en chunks por líneas para no perder transacciones"""
+def extract_bank_summary(text):
+    """
+    Extrae los totales del resumen del banco directamente del texto del PDF.
+    Busca patrones como 'Deposits and other additions 8,038.41'
+    Retorna dict con totales oficiales del banco para verificación.
+    """
+    summary = {}
+
+    # Patterns for Bank of America and common banks
+    patterns = {
+        "deposits": [
+            r"Deposits and other additions\s+\$?([\d,]+\.?\d*)",
+            r"Total deposits[^\n]*\$?([\d,]+\.?\d*)",
+            r"Total credits[^\n]*\$?([\d,]+\.?\d*)",
+            r"Créditos totales[^\n]*\$?([\d,]+\.?\d*)",
+        ],
+        "withdrawals": [
+            r"ATM and debit card subtractions\s+-?\$?([\d,]+\.?\d*)",
+            r"Other subtractions\s+-?\$?([\d,]+\.?\d*)",
+            r"Total withdrawals[^\n]*\$?([\d,]+\.?\d*)",
+            r"Total débitos[^\n]*\$?([\d,]+\.?\d*)",
+        ],
+        "ending_balance": [
+            r"Ending balance[^\n]*\$?([\d,]+\.?\d*)",
+            r"Balance final[^\n]*\$?([\d,]+\.?\d*)",
+            r"Closing balance[^\n]*\$?([\d,]+\.?\d*)",
+        ],
+        "beginning_balance": [
+            r"Beginning balance[^\n]*\$?([\d,]+\.?\d*)",
+            r"Balance inicial[^\n]*\$?([\d,]+\.?\d*)",
+            r"Opening balance[^\n]*\$?([\d,]+\.?\d*)",
+        ]
+    }
+
+    for key, pats in patterns.items():
+        for pat in pats:
+            m = re.search(pat, text, re.IGNORECASE)
+            if m:
+                try:
+                    val = float(m.group(1).replace(",", ""))
+                    if key not in summary:
+                        summary[key] = val
+                    else:
+                        summary[key] += val  # sum ATM + other subtractions
+                except:
+                    pass
+
+    return summary
+
+
+def chunk_text(text, max_chars=14000):
+    """Divide el texto en chunks por líneas"""
     lines = text.split("\n")
     chunks = []
     current = ""
@@ -66,8 +118,7 @@ def chunk_text(text, max_chars=12000):
     return chunks
 
 
-def call_anthropic_text(prompt, system=None):
-    """Llama a Haiku con texto plano — barato y preciso"""
+def call_anthropic_text(prompt, system=None, model="claude-haiku-4-5-20251001"):
     key = os.environ.get("ANTHROPIC_API_KEY", "")
     headers = {
         "x-api-key": key,
@@ -75,7 +126,7 @@ def call_anthropic_text(prompt, system=None):
         "content-type": "application/json",
     }
     payload = {
-        "model": "claude-haiku-4-5-20251001",
+        "model": model,
         "max_tokens": 8096,
         "system": system or SYSTEM_PROMPT,
         "messages": [{"role": "user", "content": prompt}]
@@ -84,6 +135,26 @@ def call_anthropic_text(prompt, system=None):
         resp = client.post(API_URL, headers=headers, json=payload)
         resp.raise_for_status()
         return resp.json()["content"][0]["text"]
+
+
+def parse_tx_totals(combined_text):
+    """Suma los montos de los TX clasificados para verificación"""
+    import json
+    total_ing = 0.0
+    total_gas = 0.0
+    count = 0
+    for m in re.finditer(r'\[TX:(\{[^\[\]]*?\})\]', combined_text):
+        try:
+            tx = json.loads(m.group(1).replace('\n', ' '))
+            monto = float(tx.get('monto', 0))
+            if tx.get('tipo') == 'INGRESO':
+                total_ing += monto
+            else:
+                total_gas += monto
+            count += 1
+        except:
+            pass
+    return total_ing, total_gas, count
 
 
 @app.route("/")
@@ -96,30 +167,70 @@ def process_pdf():
     if "file" not in request.files:
         return jsonify({"error": "No file"}), 400
 
-    file_bytes = request.files["file"].read()
+    file_bytes = request.files[\"file\"].read()
 
     try:
-        # Extraer texto con pdfplumber
         text = extract_pdf_text(file_bytes)
 
         if not text or len(text.strip()) < 50:
-            return jsonify({"error": "No se pudo extraer texto del PDF. Puede ser un PDF escaneado."}), 400
+            return jsonify({"error": "No se pudo extraer texto del PDF."}), 400
 
-        # Dividir en chunks si el texto es muy largo
+        # Extract bank's own summary totals for verification
+        bank_summary = extract_bank_summary(text)
+
         chunks = chunk_text(text, max_chars=14000)
-
         results = []
         for i, chunk in enumerate(chunks):
             part = "primera parte" if i == 0 else f"parte {i+1} de {len(chunks)}"
             prompt = f"""Clasifica TODAS las transacciones de esta {part} del estado de cuenta.
-SOLO incluye transacciones que aparezcan explícitamente. NO inventes nada.
+USA LOS MONTOS EXACTOS como aparecen. SOLO transacciones explícitas. NO inventes nada.
 
 {chunk}"""
             result = call_anthropic_text(prompt)
             results.append(result)
 
         combined = "\n".join(results)
-        return jsonify({"result": combined})
+
+        # Verify totals against bank summary
+        tx_ing, tx_gas, tx_count = parse_tx_totals(combined)
+
+        verification = {
+            "tx_count": tx_count,
+            "tx_ingresos": round(tx_ing, 2),
+            "tx_gastos": round(tx_gas, 2),
+            "bank_deposits": bank_summary.get("deposits"),
+            "bank_withdrawals": bank_summary.get("withdrawals"),
+            "discrepancy_ingresos": None,
+            "discrepancy_gastos": None,
+            "ok": True,
+            "warnings": []
+        }
+
+        # Check discrepancies
+        tolerance = 0.02  # cents tolerance for rounding
+
+        if bank_summary.get("deposits"):
+            diff_ing = abs(tx_ing - bank_summary["deposits"])
+            verification["discrepancy_ingresos"] = round(diff_ing, 2)
+            if diff_ing > tolerance:
+                verification["ok"] = False
+                verification["warnings"].append(
+                    f"⚠️ Ingresos: clasificados ${tx_ing:,.2f} vs banco ${bank_summary['deposits']:,.2f} (diferencia ${diff_ing:,.2f})"
+                )
+
+        if bank_summary.get("withdrawals"):
+            diff_gas = abs(tx_gas - bank_summary["withdrawals"])
+            verification["discrepancy_gastos"] = round(diff_gas, 2)
+            if diff_gas > tolerance:
+                verification["ok"] = False
+                verification["warnings"].append(
+                    f"⚠️ Gastos: clasificados ${tx_gas:,.2f} vs banco ${bank_summary['withdrawals']:,.2f} (diferencia ${diff_gas:,.2f})"
+                )
+
+        return jsonify({
+            "result": combined,
+            "verification": verification
+        })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
