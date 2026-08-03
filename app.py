@@ -53,50 +53,67 @@ def extract_pdf_text(file_bytes):
 
 def extract_bank_summary(text):
     """
-    Extrae los totales del resumen del banco directamente del texto del PDF.
-    Busca patrones como 'Deposits and other additions 8,038.41'
-    Retorna dict con totales oficiales del banco para verificación.
+    Extrae los totales oficiales del banco del resumen del PDF.
+    Usa los totales explícitos del banco para verificación precisa.
     """
     summary = {}
 
-    # Patterns for Bank of America and common banks
-    patterns = {
-        "deposits": [
-            r"Deposits and other additions\s+\$?([\d,]+\.?\d*)",
-            r"Total deposits[^\n]*\$?([\d,]+\.?\d*)",
-            r"Total credits[^\n]*\$?([\d,]+\.?\d*)",
-            r"Créditos totales[^\n]*\$?([\d,]+\.?\d*)",
-        ],
-        "withdrawals": [
-            r"ATM and debit card subtractions\s+-?\$?([\d,]+\.?\d*)",
-            r"Other subtractions\s+-?\$?([\d,]+\.?\d*)",
-            r"Total withdrawals[^\n]*\$?([\d,]+\.?\d*)",
-            r"Total débitos[^\n]*\$?([\d,]+\.?\d*)",
-        ],
-        "ending_balance": [
-            r"Ending balance[^\n]*\$?([\d,]+\.?\d*)",
-            r"Balance final[^\n]*\$?([\d,]+\.?\d*)",
-            r"Closing balance[^\n]*\$?([\d,]+\.?\d*)",
-        ],
-        "beginning_balance": [
-            r"Beginning balance[^\n]*\$?([\d,]+\.?\d*)",
-            r"Balance inicial[^\n]*\$?([\d,]+\.?\d*)",
-            r"Opening balance[^\n]*\$?([\d,]+\.?\d*)",
-        ]
-    }
+    # INGRESOS — busca el total explícito del banco primero
+    ing_patterns = [
+        r"Total deposits and other additions\s+\$?([\d,]+\.\d{2})",
+        r"Total deposits\s+\$?([\d,]+\.\d{2})",
+        r"Total credits\s+\$?([\d,]+\.\d{2})",
+        r"Total créditos\s+\$?([\d,]+\.\d{2})",
+        r"^Deposits and other additions\s+([\d,]+\.\d{2})\s*$",
+    ]
+    for pat in ing_patterns:
+        m = re.search(pat, text, re.IGNORECASE | re.MULTILINE)
+        if m:
+            try:
+                val = float(m.group(1).replace(",", ""))
+                if val > 0:
+                    summary["deposits"] = val
+                    break
+            except:
+                pass
 
-    for key, pats in patterns.items():
-        for pat in pats:
-            m = re.search(pat, text, re.IGNORECASE)
+    # GASTOS — busca total combinado primero, si no suma ATM + Other
+    gas_combined = [
+        r"Total withdrawals and other subtractions\s+\$?([\d,]+\.\d{2})",
+        r"Total subtractions\s+\$?([\d,]+\.\d{2})",
+        r"Total débitos\s+\$?([\d,]+\.\d{2})",
+    ]
+    for pat in gas_combined:
+        m = re.search(pat, text, re.IGNORECASE)
+        if m:
+            try:
+                summary["withdrawals"] = float(m.group(1).replace(",", ""))
+                break
+            except:
+                pass
+
+    # Si no encontró total combinado, suma líneas individuales del Account Summary
+    if "withdrawals" not in summary:
+        gas_lines = [
+            r"^ATM and debit card subtractions\s+-?\$?([\d,]+\.\d{2})\s*$",
+            r"^Other subtractions\s+-?\$?([\d,]+\.\d{2})\s*$",
+            r"^Checks\s+-?\$?([\d,]+\.\d{2})\s*$",
+            r"^Service fees\s+-?\$?([\d,]+\.\d{2})\s*$",
+        ]
+        total = 0.0
+        found = False
+        for pat in gas_lines:
+            m = re.search(pat, text, re.IGNORECASE | re.MULTILINE)
             if m:
                 try:
                     val = float(m.group(1).replace(",", ""))
-                    if key not in summary:
-                        summary[key] = val
-                    else:
-                        summary[key] += val  # sum ATM + other subtractions
+                    if val > 0:
+                        total += val
+                        found = True
                 except:
                     pass
+        if found:
+            summary["withdrawals"] = round(total, 2)
 
     return summary
 
