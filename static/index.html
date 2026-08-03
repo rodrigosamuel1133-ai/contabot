@@ -179,6 +179,25 @@
   .confirm-desc{font-size:12px;color:var(--gray-400);margin-bottom:16px;line-height:1.5;}
   .btn-d{flex:1;background:var(--red);color:white;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;}
   .btn-d:hover{background:#b50d23;}
+
+  /* RULES */
+  .rule-item{background:var(--white);border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:flex-start;gap:10px;}
+  .rule-item:hover{border-color:var(--navy);}
+  .rule-info{flex:1;}
+  .rule-cat{font-size:12px;font-weight:600;color:var(--navy);margin-bottom:3px;display:flex;align-items:center;gap:6px;}
+  .rule-kw{font-size:10px;color:var(--gray-400);font-family:"IBM Plex Mono",monospace;line-height:1.6;}
+  .rule-kw span{display:inline-block;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:3px;padding:1px 6px;margin:1px 2px;}
+  .rule-del{border:1px solid var(--gray-200);background:none;border-radius:6px;padding:5px 8px;cursor:pointer;font-size:12px;color:var(--gray-400);flex-shrink:0;}
+  .rule-del:hover{border-color:var(--red);color:var(--red);background:var(--red-light);}
+  .rule-tipo{font-size:9px;padding:1px 6px;border-radius:3px;font-family:"IBM Plex Mono",monospace;font-weight:600;}
+  .rule-tipo.ing{background:var(--green-light);color:var(--green);}
+  .rule-tipo.gas{background:var(--red-light);color:var(--red);}
+  .kw-input-wrap{display:flex;flex-wrap:wrap;gap:4px;border:1px solid var(--gray-200);border-radius:7px;padding:6px 8px;min-height:38px;cursor:text;background:white;}
+  .kw-input-wrap:focus-within{border-color:var(--navy);}
+  .kw-tag{display:inline-flex;align-items:center;gap:4px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:4px;padding:2px 7px;font-size:11px;font-family:"IBM Plex Mono",monospace;}
+  .kw-tag button{border:none;background:none;cursor:pointer;color:var(--gray-400);font-size:12px;padding:0;line-height:1;}
+  .kw-tag button:hover{color:var(--red);}
+  #kwRawInput{border:none;outline:none;font-size:11px;font-family:"IBM Plex Mono",monospace;min-width:80px;flex:1;background:transparent;}
   @media(max-width:900px){.sidebar{display:none;}}
   @media(max-width:700px){.right-panel{display:none;}}
 </style>
@@ -212,6 +231,7 @@
       <button class="q-btn gratis" onclick="switchTab('charts')">📈 Gráficos</button>
       <button class="q-btn gratis" onclick="exportCSV()">⬇️ Exportar CSV</button>
       <button class="q-btn gratis" onclick="exportPDF()">📄 Exportar PDF</button>
+      <button class="q-btn gratis" onclick="switchTab('rules')">⚙️ Reglas auto</button>
     </div>
     <div class="sum-cards">
       <div class="sum-card"><div class="sum-label">Ingresos</div><div class="sum-val pos" id="totIng">$0.00</div></div>
@@ -226,6 +246,7 @@
       <button class="tab active" id="tab-chat" onclick="switchTab('chat')">🤖 Chat IA</button>
       <button class="tab" id="tab-sched" onclick="switchTab('sched')">📋 Schedule C</button>
       <button class="tab" id="tab-charts" onclick="switchTab('charts')">📈 Gráficos</button>
+      <button class="tab" id="tab-rules" onclick="switchTab('rules')">⚙️ Reglas</button>
     </div>
 
     <!-- CHAT PANEL -->
@@ -279,6 +300,21 @@
           <div class="chart-title">🥧 Distribución Ingresos vs Gastos</div>
           <canvas id="chartPie"></canvas>
         </div>
+      </div>
+    </div>
+
+    <!-- RULES PANEL -->
+    <div class="panel" id="panel-rules">
+      <div class="sched-panel">
+        <div class="sched-title">⚙️ Reglas de Sugerencia Automática</div>
+        <div class="sched-sub">Cuando escribes una descripción en el formulario, ContaBot sugiere la categoría basado en estas palabras clave. Gratis — sin IA.</div>
+
+        <div style="display:flex;gap:10px;margin:14px 0 10px;">
+          <button class="export-pdf-btn" style="font-size:12px;padding:8px 14px;" onclick="openRuleForm()">➕ Nueva regla</button>
+          <button class="export-pdf-btn" style="background:#0E7C4A;font-size:12px;padding:8px 14px;" onclick="resetRules()">↺ Restaurar defaults</button>
+        </div>
+
+        <div id="rulesList"></div>
       </div>
     </div>
   </main>
@@ -410,9 +446,59 @@
   </div>
 </div>
 
+<!-- RULE FORM MODAL -->
+<div class="modal-overlay" id="ruleOverlay">
+  <div class="modal" style="width:500px;">
+    <div class="modal-title">➕ Nueva regla de sugerencia</div>
+    <div class="modal-sub">Cuando la descripción contenga estas palabras → sugerir esta categoría</div>
+
+    <div class="modal-sec">Palabras clave (Enter para agregar cada una)</div>
+    <div class="kw-input-wrap" id="kwWrap" onclick="document.getElementById('kwRawInput').focus()">
+      <input type="text" id="kwRawInput" placeholder="Escribe y presiona Enter..." onkeydown="kwKeyDown(event)">
+    </div>
+    <div style="font-size:10px;color:var(--gray-400);margin-top:4px;">Ejemplos: &quot;zelle from&quot;, &quot;square&quot;, &quot;cricket&quot;</div>
+
+    <div class="modal-sec">Tipo</div>
+    <div class="tipo-toggle">
+      <button class="tipo-btn ing sel" id="ruleTipoBtnIng" onclick="setRuleTipo('INGRESO')">💰 Ingreso</button>
+      <button class="tipo-btn gas" id="ruleTipoBtnGas" onclick="setRuleTipo('GASTO')">💸 Gasto</button>
+    </div>
+
+    <div class="modal-sec">Categoría Schedule C</div>
+    <select class="form-select" id="ruleCat" style="width:100%;">
+      <option value="ING|Ingresos Brutos del Negocio">ING — Ingresos Brutos</option>
+      <option value="L8|Publicidad">L8 — Publicidad</option>
+      <option value="L9|Gastos de Vehículo">L9 — Gastos de Vehículo</option>
+      <option value="L10|Comisiones y Honorarios">L10 — Comisiones y Honorarios</option>
+      <option value="L11|Mano de Obra Contrato">L11 — Mano de Obra Contrato</option>
+      <option value="L15|Seguros (no salud)">L15 — Seguros</option>
+      <option value="L16a|Interés — Hipoteca">L16a — Interés Hipoteca</option>
+      <option value="L16b|Interés — Otros">L16b — Interés Otros</option>
+      <option value="L17|Servicios Legales/Prof.">L17 — Servicios Legales/Prof.</option>
+      <option value="L18|Gastos de Oficina">L18 — Gastos de Oficina</option>
+      <option value="L20a|Alquiler Vehículo/Equipo">L20a — Alquiler Vehículo/Equipo</option>
+      <option value="L20b|Alquiler Prop. Comercial">L20b — Alquiler Prop. Comercial</option>
+      <option value="L21|Reparaciones y Mant.">L21 — Reparaciones y Mant.</option>
+      <option value="L22|Suministros">L22 — Suministros</option>
+      <option value="L23|Impuestos y Licencias">L23 — Impuestos y Licencias</option>
+      <option value="L24a|Viajes">L24a — Viajes</option>
+      <option value="L24b|Comidas Deducibles">L24b — Comidas Deducibles</option>
+      <option value="L25|Servicios Públicos">L25 — Servicios Públicos</option>
+      <option value="L26|Salarios">L26 — Salarios</option>
+      <option value="L27a|Otros Gastos">L27a — Otros Gastos</option>
+      <option value="L30|Uso Hogar — Negocio">L30 — Uso Hogar Negocio</option>
+    </select>
+
+    <div class="modal-actions">
+      <button class="btn-s" onclick="closeRuleForm()">Cancelar</button>
+      <button class="btn-p" onclick="saveRule()">Guardar regla</button>
+    </div>
+  </div>
+</div>
+
 <script>
-// ── CATEGORY SUGGESTION RULES (free, no AI) ──
-const RULES=[
+// ── CATEGORY SUGGESTION RULES — dynamic, saved in localStorage ──
+const DEFAULT_RULES=[
   {kw:['zelle payment from','square inc','square payment','deposit','zelle from'],l:'ING',n:'Ingresos Brutos del Negocio',t:'INGRESO'},
   {kw:['cricket','wireless','phone','celular','at&t','verizon','t-mobile','internet','comcast'],l:'L25',n:'Servicios Públicos',t:'GASTO'},
   {kw:['electric','electricidad','water','gas company','utility'],l:'L25',n:'Servicios Públicos',t:'GASTO'},
@@ -432,28 +518,101 @@ const RULES=[
   {kw:['commission','honorario','comision'],l:'L10',n:'Comisiones y Honorarios',t:'GASTO'},
 ];
 
+function loadRules(){try{const r=localStorage.getItem('contabot_rules');return r?JSON.parse(r):[...DEFAULT_RULES];}catch(e){return[...DEFAULT_RULES];}}
+function saveRules(r){try{localStorage.setItem('contabot_rules',JSON.stringify(r));}catch(e){}}
+let RULES=loadRules();
+
 function guessCategory(desc){
   const d=desc.toLowerCase();
-  for(const r of RULES){
-    if(r.kw.some(k=>d.includes(k))) return r;
-  }
+  for(const r of RULES){if(r.kw.some(k=>d.includes(k)))return r;}
   return null;
 }
-
 function suggestCategory(){
   const desc=document.getElementById('fDesc').value;
   const sug=document.getElementById('catSuggest');
   if(!desc){sug.innerHTML='';return;}
   const g=guessCategory(desc);
-  if(g){
-    sug.innerHTML=`<span class="suggest-tag" onclick="applySuggest('${g.l}','${g.n}','${g.t}')">💡 Sugerido: ${g.l} — ${g.n}</span>`;
-  }else{sug.innerHTML='';}
+  if(g){sug.innerHTML=`<span class="suggest-tag" onclick="applySuggest('${g.l}','${g.n}','${g.t}')">💡 Sugerido: ${g.l} — ${g.n}</span>`;}
+  else{sug.innerHTML='';}
 }
-
 function applySuggest(l,n,t){
   document.getElementById('fCat').value=`${l}|${n}`;
   if(t==='INGRESO')setTipo('INGRESO');else setTipo('GASTO');
   document.getElementById('catSuggest').innerHTML='';
+}
+
+// ── RULES PANEL ──
+function renderRules(){
+  const el=document.getElementById('rulesList');if(!el)return;
+  if(!RULES.length){el.innerHTML='<div class="empty-panel">Sin reglas. Agrega una nueva.</div>';return;}
+  el.innerHTML=RULES.map((r,i)=>`
+    <div class="rule-item">
+      <div class="rule-info">
+        <div class="rule-cat">
+          <span class="rule-tipo ${r.t==='INGRESO'?'ing':'gas'}">${r.t}</span>
+          <span>${r.l} — ${r.n}</span>
+        </div>
+        <div class="rule-kw">${r.kw.map(k=>`<span>${k}</span>`).join('')}</div>
+      </div>
+      <button class="rule-del" onclick="deleteRule(${i})" title="Eliminar">🗑️</button>
+    </div>`).join('');
+}
+function deleteRule(i){
+  if(!confirm(`¿Eliminar la regla "${RULES[i].n}"?`))return;
+  RULES.splice(i,1);saveRules(RULES);renderRules();
+}
+function resetRules(){
+  if(!confirm('¿Restaurar reglas por defecto? Se perderán las personalizadas.'))return;
+  RULES=[...DEFAULT_RULES];saveRules(RULES);renderRules();
+}
+
+// ── RULE FORM ──
+const ruleKws=[];let ruleTipo='GASTO';
+function openRuleForm(){
+  ruleKws.length=0;ruleTipo='GASTO';renderKwTags();
+  document.getElementById('ruleCat').value='L27a|Otros Gastos';
+  setRuleTipo('GASTO');
+  document.getElementById('ruleOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('kwRawInput').focus(),100);
+}
+function closeRuleForm(){document.getElementById('ruleOverlay').classList.remove('open');}
+document.getElementById('ruleOverlay').addEventListener('click',function(e){if(e.target===this)closeRuleForm();});
+function setRuleTipo(t){
+  ruleTipo=t;
+  document.getElementById('ruleTipoBtnIng').classList.toggle('sel',t==='INGRESO');
+  document.getElementById('ruleTipoBtnGas').classList.toggle('sel',t==='GASTO');
+  const cat=document.getElementById('ruleCat');
+  if(t==='INGRESO')cat.value='ING|Ingresos Brutos del Negocio';
+  else if(cat.value.startsWith('ING'))cat.value='L27a|Otros Gastos';
+}
+function renderKwTags(){
+  const wrap=document.getElementById('kwWrap');
+  const input=document.getElementById('kwRawInput');
+  wrap.innerHTML='';
+  ruleKws.forEach((kw,i)=>{
+    const tag=document.createElement('span');tag.className='kw-tag';
+    tag.innerHTML=`${kw}<button onclick="removeKw(${i})">×</button>`;
+    wrap.appendChild(tag);
+  });
+  wrap.appendChild(input);
+}
+function removeKw(i){ruleKws.splice(i,1);renderKwTags();}
+function kwKeyDown(e){
+  if(e.key==='Enter'||e.key===','||e.key==='Tab'){
+    e.preventDefault();
+    const val=document.getElementById('kwRawInput').value.trim().toLowerCase();
+    if(val&&!ruleKws.includes(val)){ruleKws.push(val);renderKwTags();}
+    document.getElementById('kwRawInput').value='';
+  }
+  if(e.key==='Backspace'&&!document.getElementById('kwRawInput').value&&ruleKws.length){ruleKws.pop();renderKwTags();}
+}
+function saveRule(){
+  const rawInput=document.getElementById('kwRawInput').value.trim().toLowerCase();
+  if(rawInput)ruleKws.push(rawInput);
+  if(!ruleKws.length){alert('Agrega al menos una palabra clave.');return;}
+  const[l,n]=document.getElementById('ruleCat').value.split('|');
+  RULES.unshift({kw:[...ruleKws],l,n,t:ruleTipo});
+  saveRules(RULES);renderRules();closeRuleForm();
 }
 
 // ── CATS ──
@@ -482,6 +641,7 @@ function switchTab(t){
   document.getElementById('panel-'+t).classList.add('active');
   if(t==='sched')renderScheduleC();
   if(t==='charts')renderCharts();
+  if(t==='rules')renderRules();
 }
 
 // ── DATE UTILS ──
