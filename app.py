@@ -35,7 +35,7 @@ def call_anthropic(messages, pdf_b64=None):
         ]}]
     payload = {
         "model": "claude-sonnet-4-6",
-        "max_tokens": 4096,
+        "max_tokens": 8096,
         "system": SYSTEM_PROMPT,
         "messages": messages
     }
