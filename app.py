@@ -1,13 +1,21 @@
 import os
 import base64
-import anthropic
+import json
+import httpx
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
 app = Flask(__name__, static_folder="static")
 CORS(app)
 
-client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+API_URL = "https://api.anthropic.com/v1/messages"
+HEADERS = {
+    "x-api-key": ANTHROPIC_API_KEY,
+    "anthropic-version": "2023-06-01",
+    "anthropic-beta": "pdfs-2024-09-25",
+    "content-type": "application/json",
+}
 
 SYSTEM_PROMPT = """Eres ContaBot, un asistente contable inteligente. Analiza estados de cuenta bancarios y clasifica TODAS las transacciones.
 
@@ -17,13 +25,27 @@ Para cada transacción usa este formato exacto (una por línea):
 Categorías para INGRESOS: Servicios, Square/POS, Zelle Recibido, Depósito
 Categorías para GASTOS: Renta/Arrendamiento, Proveedores, Telecomunicaciones, Tarjeta de Crédito, Nómina, Pagos/Varios, Servicios Financieros
 
-Después de todos los [TX:...], escribe un resumen breve en español con:
-- Total ingresos
-- Total gastos  
-- Balance neto
-- Observación más importante
+Después de todos los [TX:...], escribe un resumen breve en español con total ingresos, total gastos y balance neto.
+NO omitas ninguna transacción."""
 
-NO omitas ninguna transacción. Procesa absolutamente todas las que aparezcan en el documento."""
+
+def call_anthropic(messages, use_pdf_beta=False):
+    headers = dict(HEADERS)
+    headers["x-api-key"] = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not use_pdf_beta:
+        headers.pop("anthropic-beta", None)
+
+    payload = {
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 4096,
+        "system": SYSTEM_PROMPT,
+        "messages": messages,
+    }
+
+    with httpx.Client(timeout=120) as client:
+        resp = client.post(API_URL, headers=headers, json=payload)
+        resp.raise_for_status()
+        return resp.json()["content"][0]["text"]
 
 
 @app.route("/")
@@ -37,41 +59,34 @@ def process_pdf():
         return jsonify({"error": "No se recibió archivo"}), 400
 
     file = request.files["file"]
-    if not file.filename:
-        return jsonify({"error": "Archivo vacío"}), 400
-
     file_bytes = file.read()
     file_b64 = base64.standard_b64encode(file_bytes).decode("utf-8")
 
-    ext = file.filename.rsplit(".", 1)[-1].lower()
-
-    if ext == "pdf":
-        content = [
-            {
-                "type": "document",
-                "source": {
-                    "type": "base64",
-                    "media_type": "application/pdf",
-                    "data": file_b64,
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "application/pdf",
+                        "data": file_b64,
+                    },
                 },
-            },
-            {
-                "type": "text",
-                "text": "Analiza este estado de cuenta bancario completo y clasifica TODAS las transacciones sin omitir ninguna.",
-            },
-        ]
-    else:
-        return jsonify({"error": "Solo se aceptan archivos PDF por este endpoint"}), 400
+                {
+                    "type": "text",
+                    "text": "Analiza este estado de cuenta bancario completo y clasifica TODAS las transacciones sin omitir ninguna.",
+                },
+            ],
+        }
+    ]
 
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=4096,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": content}],
-    )
-
-    raw = message.content[0].text
-    return jsonify({"result": raw})
+    try:
+        result = call_anthropic(messages, use_pdf_beta=True)
+        return jsonify({"result": result})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/chat", methods=["POST"])
@@ -80,15 +95,11 @@ def chat():
     messages = data.get("messages", [])
     if not messages:
         return jsonify({"error": "Sin mensajes"}), 400
-
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1024,
-        system=SYSTEM_PROMPT,
-        messages=messages,
-    )
-
-    return jsonify({"result": response.content[0].text})
+    try:
+        result = call_anthropic(messages)
+        return jsonify({"result": result})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
