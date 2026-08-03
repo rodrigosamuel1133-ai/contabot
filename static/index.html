@@ -1133,15 +1133,16 @@ async function processFile(file){
       // Show verification result
       const v=data.verification||{};
       let verMsg=`✅ **${txs.length} transacciones clasificadas.**`;
+      if(v.rescued>0) verMsg+=` (${v.rescued} recuperadas automáticamente)`;
       if(v.bank_deposits||v.bank_withdrawals){
         if(v.ok){
-          verMsg+=`\n\n✅ **Verificación automática:** Los montos cuadran con el resumen del banco.`;
+          verMsg+=`\n\n✅ **Verificación:** Los montos cuadran con el resumen del banco.`;
           if(v.bank_deposits) verMsg+=`\n• Ingresos: $${v.tx_ingresos?.toLocaleString('en-US',{minimumFractionDigits:2})} ✓`;
           if(v.bank_withdrawals) verMsg+=`\n• Gastos: $${v.tx_gastos?.toLocaleString('en-US',{minimumFractionDigits:2})} ✓`;
         }else{
-          verMsg+=`\n\n⚠️ **Discrepancia detectada** — hay diferencia con el resumen del banco:`;
+          verMsg+=`\n\n⚠️ **Discrepancia detectada:**`;
           (v.warnings||[]).forEach(w=>{verMsg+='\n'+w;});
-          verMsg+=`\n\nRevisa las transacciones del panel derecho y usa ✏️ para corregir montos o 🗑️ para eliminar duplicados.`;
+          verMsg+=`\n\nUsa ✏️ para corregir montos o 🗑️ para eliminar duplicados en el panel derecho.`;
         }
       }
       verMsg+=`\n\nRevisa **Schedule C** para el resumen del IRS.`;
