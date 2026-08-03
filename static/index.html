@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ContaBot — Contabilidad Inteligente</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+  :root {
+    --navy:#082D57; --red:#DB0F2A; --gold:#C8972B;
+    --bg:#F7F8FA; --white:#fff; --gray-50:#F0F2F5;
+    --gray-200:#D8DCE3; --gray-400:#8A92A0; --gray-700:#3A4252;
+    --green:#0E7C4A; --green-light:#E8F7F0; --red-light:#FEF0F2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--gray-700);min-height:100vh;display:flex;flex-direction:column;}
+  header{background:var(--navy);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+  .logo{display:flex;align-items:center;gap:10px;}
+  .logo-icon{width:36px;height:36px;background:var(--gold);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:14px;color:var(--navy);}
+  .logo-text{color:white;font-size:18px;font-weight:600;} .logo-text span{color:var(--gold);}
+  .header-tag{font-family:'IBM Plex Mono',monospace;font-size:11px;color:rgba(255,255,255,0.4);letter-spacing:1px;text-transform:uppercase;}
+  .app{display:flex;flex:1;overflow:hidden;height:calc(100vh - 60px);}
+
+  /* SIDEBAR */
+  .sidebar{width:240px;background:var(--white);border-right:1px solid var(--gray-200);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
+  .sidebar-section{padding:14px 16px;border-bottom:1px solid var(--gray-200);}
+  .sidebar-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--gray-400);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
+  .upload-zone{border:2px dashed var(--gray-200);border-radius:10px;padding:16px 12px;text-align:center;cursor:pointer;transition:all .2s;background:var(--gray-50);}
+  .upload-zone:hover,.upload-zone.drag-over{border-color:var(--navy);background:#f0f4ff;}
+  .upload-zone input{display:none;}
+  .upload-icon{font-size:24px;margin-bottom:6px;}
+  .upload-title{font-size:12px;font-weight:600;color:var(--navy);margin-bottom:2px;}
+  .upload-sub{font-size:11px;color:var(--gray-400);}
+  .progress-wrap{margin-top:10px;display:none;}
+  .progress-wrap.active{display:block;}
+  .progress-label{font-size:11px;color:var(--gray-400);margin-bottom:4px;}
+  .progress-bar{height:4px;background:var(--gray-200);border-radius:4px;overflow:hidden;}
+  .progress-fill{height:100%;background:var(--navy);border-radius:4px;width:0%;transition:width .3s;}
+  .quick-btn{width:100%;background:none;border:1px solid var(--gray-200);border-radius:6px;padding:8px 12px;text-align:left;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:var(--gray-700);margin-bottom:6px;transition:all .15s;display:flex;align-items:center;gap:8px;}
+  .quick-btn:hover{background:var(--gray-50);border-color:var(--navy);color:var(--navy);}
+  .summary-mini{padding:14px 16px;display:flex;flex-direction:column;gap:8px;}
+  .mini-card{background:var(--gray-50);border-radius:8px;padding:10px 12px;}
+  .mini-card-label{font-size:10px;color:var(--gray-400);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px;}
+  .mini-card-value{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;}
+  .positive{color:var(--green);} .negative{color:var(--red);} .neutral{color:var(--navy);}
+
+  /* MAIN */
+  .main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+  .chat-area{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px;}
+  .message{display:flex;gap:12px;max-width:800px;}
+  .message.user{align-self:flex-end;flex-direction:row-reverse;}
+  .avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;margin-top:2px;}
+  .avatar.bot{background:var(--navy);color:white;} .avatar.user{background:var(--gold);color:var(--navy);}
+  .bubble{padding:12px 16px;border-radius:12px;font-size:14px;line-height:1.6;max-width:680px;}
+  .bubble.bot{background:var(--white);border:1px solid var(--gray-200);border-top-left-radius:4px;}
+  .bubble.user{background:var(--navy);color:white;border-top-right-radius:4px;}
+  .bubble table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px;}
+  .bubble table th{background:var(--gray-50);padding:7px 10px;text-align:left;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--gray-400);border-bottom:2px solid var(--gray-200);}
+  .bubble table td{padding:7px 10px;border-bottom:1px solid var(--gray-200);font-size:12px;}
+  .bubble table tr:last-child td{border-bottom:none;}
+  .tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;}
+  .tag.ingreso{background:var(--green-light);color:var(--green);}
+  .tag.gasto{background:var(--red-light);color:var(--red);}
+  .amount-pos{color:var(--green);font-weight:600;font-family:'IBM Plex Mono',monospace;}
+  .amount-neg{color:var(--red);font-weight:600;font-family:'IBM Plex Mono',monospace;}
+  .typing{display:flex;align-items:center;gap:4px;padding:14px 16px;}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--gray-400);animation:bounce 1.2s infinite;}
+  .dot:nth-child(2){animation-delay:.2s;} .dot:nth-child(3){animation-delay:.4s;}
+  @keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.5;}40%{transform:translateY(-5px);opacity:1;}}
+  .input-bar{border-top:1px solid var(--gray-200);padding:14px 24px;background:var(--white);display:flex;gap:10px;align-items:flex-end;}
+  .input-wrap{flex:1;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:10px;display:flex;align-items:center;gap:8px;padding:10px 14px;transition:border-color .15s;}
+  .input-wrap:focus-within{border-color:var(--navy);background:var(--white);}
+  #userInput{flex:1;border:none;background:none;outline:none;font-family:'IBM Plex Sans',sans-serif;font-size:14px;color:var(--gray-700);resize:none;max-height:100px;line-height:1.5;}
+  #userInput::placeholder{color:var(--gray-400);}
+  .send-btn{width:40px;height:40px;background:var(--navy);border:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;color:white;font-size:16px;}
+  .send-btn:hover{background:#0a3d75;} .send-btn:disabled{background:var(--gray-200);cursor:not-allowed;}
+
+  /* RIGHT PANEL */
+  .right-panel{width:270px;background:var(--white);border-left:1px solid var(--gray-200);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
+  .panel-header{padding:14px 16px;border-bottom:1px solid var(--gray-200);font-size:11px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.8px;font-family:'IBM Plex Mono',monospace;display:flex;justify-content:space-between;align-items:center;}
+  .tx-count{background:var(--navy);color:white;font-size:10px;padding:2px 7px;border-radius:10px;font-family:'IBM Plex Mono',monospace;}
+  .filter-bar{padding:8px 16px;border-bottom:1px solid var(--gray-200);display:flex;gap:4px;}
+  .filter-btn{border:none;background:none;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.5px;transition:all .15s;color:var(--gray-400);}
+  .filter-btn.active{background:var(--navy);color:white;}
+  .filter-btn:hover:not(.active){background:var(--gray-50);color:var(--navy);}
+  .transaction-item{padding:9px 16px;border-bottom:1px solid var(--gray-50);display:flex;flex-direction:column;gap:3px;}
+  .tx-header{display:flex;justify-content:space-between;align-items:center;}
+  .tx-desc{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tx-amount{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;flex-shrink:0;}
+  .tx-meta{font-size:10px;color:var(--gray-400);}
+  .empty-panel{padding:24px 16px;text-align:center;color:var(--gray-400);font-size:13px;line-height:1.6;}
+  .empty-icon{font-size:28px;margin-bottom:8px;}
+  @media(max-width:768px){.sidebar{display:none;}.right-panel{display:none;}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <div class="logo-icon">CB</div>
+    <div class="logo-text">Conta<span>Bot</span></div>
+  </div>
+  <div class="header-tag">Contabilidad con IA · TAXPRO</div>
+</header>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Importar estado de cuenta</div>
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+        <input type="file" id="fileInput" accept=".pdf,.csv,.xlsx,.xls" onchange="handleFile(event)">
+        <div class="upload-icon">📂</div>
+        <div class="upload-title">Arrastra o haz clic</div>
+        <div class="upload-sub">PDF · Excel · CSV</div>
+      </div>
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-label" id="progressLabel">Procesando...</div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Acciones rápidas</div>
+      <button class="quick-btn" onclick="sendQuick('Registrar un ingreso')"><span>💰</span> Registrar ingreso</button>
+      <button class="quick-btn" onclick="sendQuick('Registrar un gasto')"><span>💸</span> Registrar gasto</button>
+      <button class="quick-btn" onclick="sendQuick('Ver resumen del mes')"><span>📊</span> Resumen del mes</button>
+      <button class="quick-btn" onclick="sendQuick('¿Cuáles son mis gastos más altos?')"><span>🔍</span> Analizar gastos</button>
+      <button class="quick-btn" onclick="exportCSV()"><span>⬇️</span> Exportar CSV</button>
+    </div>
+    <div class="summary-mini">
+      <div class="mini-card"><div class="mini-card-label">Ingresos</div><div class="mini-card-value positive" id="totalIngresos">$0.00</div></div>
+      <div class="mini-card"><div class="mini-card-label">Gastos</div><div class="mini-card-value negative" id="totalGastos">$0.00</div></div>
+      <div class="mini-card"><div class="mini-card-label">Balance neto</div><div class="mini-card-value neutral" id="totalBalance">$0.00</div></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="chat-area" id="chatArea">
+      <div class="message">
+        <div class="avatar bot">CB</div>
+        <div class="bubble bot">
+          👋 Hola, soy <strong>ContaBot</strong> — contabilidad con IA.<br><br>
+          Sube tu estado de cuenta en <strong>PDF</strong> y lo clasifico completo automáticamente. También acepto Excel y CSV, o puedes escribirme transacciones individuales.<br><br>
+          ¿Por dónde empezamos?
+        </div>
+      </div>
+    </div>
+    <div class="input-bar">
+      <div class="input-wrap">
+        <textarea id="userInput" rows="1" placeholder="Escribe una transacción o pregunta..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      </div>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+    </div>
+  </main>
+
+  <aside class="right-panel">
+    <div class="panel-header">Transacciones <span class="tx-count" id="txCount">0</span></div>
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="setFilter('all',this)">Todas</button>
+      <button class="filter-btn" onclick="setFilter('INGRESO',this)">Ingresos</button>
+      <button class="filter-btn" onclick="setFilter('GASTO',this)">Gastos</button>
+    </div>
+    <div id="txList"><div class="empty-panel"><div class="empty-icon">🧾</div>Sube un estado de cuenta para comenzar.</div></div>
+  </aside>
+</div>
+
+<script>
+const state = { transactions: [], conversationHistory: [], filter: 'all' };
+
+function fmt(n){ return '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+function updateSummary(){
+  let ing=0,gas=0;
+  state.transactions.forEach(t=>{ if(t.tipo==='INGRESO') ing+=t.monto; else gas+=t.monto; });
+  const bal=ing-gas;
+  document.getElementById('totalIngresos').textContent=fmt(ing);
+  document.getElementById('totalGastos').textContent=fmt(gas);
+  const b=document.getElementById('totalBalance');
+  b.textContent=(bal<0?'-':'')+fmt(bal);
+  b.className='mini-card-value '+(bal>=0?'positive':'negative');
+}
+
+function setFilter(f,btn){
+  state.filter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); updateTxList();
+}
+
+function updateTxList(){
+  const list=document.getElementById('txList');
+  document.getElementById('txCount').textContent=state.transactions.length;
+  const filtered=state.filter==='all'?state.transactions:state.transactions.filter(t=>t.tipo===state.filter);
+  if(!filtered.length){ list.innerHTML='<div class="empty-panel"><div class="empty-icon">🧾</div>Sin transacciones.</div>'; return; }
+  list.innerHTML=[...filtered].reverse().slice(0,60).map(t=>{
+    const ac=t.tipo==='INGRESO'?'amount-pos':'amount-neg';
+    const sign=t.tipo==='INGRESO'?'+':'-';
+    return `<div class="transaction-item">
+      <div class="tx-header"><span class="tag ${t.tipo.toLowerCase()}">${t.tipo}</span><span class="${ac}">${sign}${fmt(t.monto)}</span></div>
+      <div class="tx-desc" title="${t.descripcion}">${t.descripcion}</div>
+      <div class="tx-meta">${t.categoria||''} · ${t.fecha||''}</div>
+    </div>`;
+  }).join('');
+}
+
+function parseTx(text){
+  const matches=[...text.matchAll(/\[TX:(\{.*?\})\]/g)];
+  return matches.map(m=>{ try{ return JSON.parse(m[1]); }catch(e){ return null; } }).filter(Boolean);
+}
+
+function cleanText(text){ return text.replace(/\[TX:\{.*?\}\]/g,'').trim(); }
+
+function md(text){
+  return text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>').replace(/\n/g,'<br>');
+}
+
+function addMessage(role,content,isTyping=false){
+  const area=document.getElementById('chatArea');
+  const div=document.createElement('div');
+  div.className='message'+(role==='user'?' user':'');
+  const av=document.createElement('div');
+  av.className='avatar '+(role==='user'?'user':'bot');
+  av.textContent=role==='user'?'TÚ':'CB';
+  const bubble=document.createElement('div');
+  bubble.className='bubble '+(role==='user'?'user':'bot');
+  if(isTyping){ bubble.innerHTML='<div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>'; div.id='typing-indicator'; }
+  else bubble.innerHTML=md(content);
+  div.appendChild(av); div.appendChild(bubble);
+  area.appendChild(div); area.scrollTop=area.scrollHeight;
+  return div;
+}
+
+function removeTyping(){ const e=document.getElementById('typing-indicator'); if(e) e.remove(); }
+
+function setProgress(pct,label){
+  const w=document.getElementById('progressWrap');
+  w.classList.toggle('active',pct>0&&pct<100);
+  document.getElementById('progressFill').style.width=pct+'%';
+  document.getElementById('progressLabel').textContent=label||'Procesando...';
+}
+
+// ── CHAT via backend ──
+async function callBackend(messages){
+  const res=await fetch('/api/chat',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({messages})
+  });
+  const data=await res.json();
+  if(data.error) throw new Error(data.error);
+  return data.result;
+}
+
+async function sendMessage(override){
+  const input=document.getElementById('userInput');
+  const text=override||input.value.trim();
+  if(!text) return;
+  input.value=''; input.style.height='auto';
+  document.getElementById('sendBtn').disabled=true;
+  addMessage('user',text);
+  state.conversationHistory.push({role:'user',content:text});
+  addMessage('bot','',true);
+  try{
+    const raw=await callBackend(state.conversationHistory);
+    const txs=parseTx(raw);
+    txs.forEach(tx=>{ if(tx&&tx.monto&&tx.tipo) state.transactions.push({...tx,id:Date.now()+Math.random()}); });
+    if(txs.length){ updateSummary(); updateTxList(); }
+    removeTyping();
+    addMessage('bot',cleanText(raw));
+    state.conversationHistory.push({role:'assistant',content:raw});
+  }catch(e){
+    removeTyping(); addMessage('bot','⚠️ Error: '+e.message);
+  }
+  document.getElementById('sendBtn').disabled=false;
+}
+
+function sendQuick(t){ sendMessage(t); }
+function handleKey(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendMessage(); } }
+function autoResize(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,100)+'px'; }
+
+// ── FILE UPLOAD via backend ──
+function dragOver(e){ e.preventDefault(); document.getElementById('uploadZone').classList.add('drag-over'); }
+function dragLeave(){ document.getElementById('uploadZone').classList.remove('drag-over'); }
+function dropFile(e){ e.preventDefault(); document.getElementById('uploadZone').classList.remove('drag-over'); const f=e.dataTransfer.files[0]; if(f) processFile(f); }
+function handleFile(e){ const f=e.target.files[0]; if(f) processFile(f); e.target.value=''; }
+
+async function processFile(file){
+  const ext=file.name.split('.').pop().toLowerCase();
+  addMessage('bot',`📂 Recibí <strong>${file.name}</strong>. Analizando con IA...`);
+  setProgress(20,'Enviando al servidor...');
+
+  try{
+    if(ext==='pdf'){
+      // Send PDF directly to backend — Claude reads it natively
+      const formData=new FormData();
+      formData.append('file',file);
+      setProgress(50,'Claude leyendo el PDF completo...');
+      const res=await fetch('/api/process-pdf',{method:'POST',body:formData});
+      const data=await res.json();
+      if(data.error) throw new Error(data.error);
+      const raw=data.result;
+      const txs=parseTx(raw);
+      txs.forEach(tx=>{ if(tx&&tx.monto&&tx.tipo) state.transactions.push({...tx,id:Date.now()+Math.random()}); });
+      if(txs.length){ updateSummary(); updateTxList(); }
+      setProgress(100);
+      setTimeout(()=>setProgress(0),500);
+      addMessage('bot',`✅ **${txs.length} transacciones clasificadas.**\n\n`+cleanText(raw));
+    } else {
+      // CSV/Excel — extract text and send via chat
+      let text='';
+      if(ext==='csv'){
+        text=await file.text();
+      } else {
+        const buf=await file.arrayBuffer();
+        const wb=XLSX.read(buf,{type:'array'});
+        wb.SheetNames.forEach(s=>{ text+=XLSX.utils.sheet_to_csv(wb.Sheets[s])+'\n'; });
+      }
+      setProgress(60,'Clasificando transacciones...');
+      const prompt=`Analiza este estado de cuenta y clasifica TODAS las transacciones:\n\n${text.slice(0,12000)}`;
+      state.conversationHistory.push({role:'user',content:prompt});
+      const raw=await callBackend(state.conversationHistory);
+      const txs=parseTx(raw);
+      txs.forEach(tx=>{ if(tx&&tx.monto&&tx.tipo) state.transactions.push({...tx,id:Date.now()+Math.random()}); });
+      if(txs.length){ updateSummary(); updateTxList(); }
+      state.conversationHistory.push({role:'assistant',content:raw});
+      setProgress(100); setTimeout(()=>setProgress(0),500);
+      addMessage('bot',`✅ **${txs.length} transacciones clasificadas.**\n\n`+cleanText(raw));
+    }
+  }catch(e){
+    setProgress(0); addMessage('bot','⚠️ Error: '+e.message);
+  }
+}
+
+function exportCSV(){
+  if(!state.transactions.length){ addMessage('bot','No hay transacciones para exportar.'); return; }
+  const rows=[['Fecha','Tipo','Descripcion','Categoria','Monto']];
+  state.transactions.forEach(t=>rows.push([t.fecha||'',t.tipo,t.descripcion,t.categoria||'',t.monto]));
+  const csv=rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='contabot-transacciones.csv'; a.click();
+  addMessage('bot',`✅ CSV exportado con ${state.transactions.length} transacciones.`);
+}
+</script>
+</body>
+</html>
