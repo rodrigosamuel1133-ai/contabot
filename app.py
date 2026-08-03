@@ -179,6 +179,63 @@ def index():
     return send_from_directory("static", "index.html")
 
 
+def extract_all_bank_lines(text):
+    """
+    Extrae todas las líneas de transacciones del PDF como texto plano.
+    Cada línea tiene: fecha, descripción, monto.
+    Usada para encontrar qué transacciones faltan tras la clasificación.
+    """
+    lines = []
+    # Pattern: date (MM/DD/YY or MM/DD/YYYY) + description + amount at end
+    pattern = re.compile(
+        r'(\d{1,2}/\d{1,2}/\d{2,4})\s+(.+?)\s+(-?[\d,]+\.\d{2})\s*$',
+        re.MULTILINE
+    )
+    for m in pattern.finditer(text):
+        fecha = m.group(1)
+        desc  = m.group(2).strip()
+        monto_str = m.group(3).replace(',', '')
+        try:
+            monto = abs(float(monto_str))
+            if monto > 0:
+                lines.append({"fecha": fecha, "desc": desc, "monto": monto, "raw": m.group(0).strip()})
+        except:
+            pass
+    return lines
+
+
+def find_missing_lines(bank_lines, combined_result, tolerance=0.02):
+    """
+    Compara las líneas del banco con los TX clasificados.
+    Retorna las líneas del banco que no tienen match por monto.
+    """
+    import json
+    # Get all classified amounts
+    classified_amounts = []
+    for m in re.finditer(r'\[TX:(\{[^\[\]]*?\})\]', combined_result):
+        try:
+            tx = json.loads(m.group(1).replace('\n', ' '))
+            classified_amounts.append(round(float(tx.get('monto', 0)), 2))
+        except:
+            pass
+
+    # Find bank lines not matched
+    unmatched = []
+    remaining = classified_amounts.copy()
+    for line in bank_lines:
+        monto = round(line['monto'], 2)
+        matched = False
+        for i, ca in enumerate(remaining):
+            if abs(ca - monto) <= tolerance:
+                remaining.pop(i)
+                matched = True
+                break
+        if not matched:
+            unmatched.append(line)
+
+    return unmatched
+
+
 @app.route("/api/process-pdf", methods=["POST"])
 def process_pdf():
     if "file" not in request.files:
@@ -192,10 +249,12 @@ def process_pdf():
         if not text or len(text.strip()) < 50:
             return jsonify({"error": "No se pudo extraer texto del PDF."}), 400
 
-        # Extract bank's own summary totals for verification
         bank_summary = extract_bank_summary(text)
-
+        bank_lines   = extract_all_bank_lines(text)
         chunks = chunk_text(text, max_chars=14000)
+        tolerance = 0.10
+
+        # ── Paso 1: Haiku clasifica todo ──
         results = []
         for i, chunk in enumerate(chunks):
             part = "primera parte" if i == 0 else f"parte {i+1} de {len(chunks)}"
@@ -203,45 +262,59 @@ def process_pdf():
 USA LOS MONTOS EXACTOS como aparecen. SOLO transacciones explícitas. NO inventes nada.
 
 {chunk}"""
-            result = call_anthropic_text(prompt)
-            results.append(result)
-
+            results.append(call_anthropic_text(prompt, model="claude-haiku-4-5-20251001"))
         combined = "\n".join(results)
 
-        # Verify totals against bank summary
         tx_ing, tx_gas, tx_count = parse_tx_totals(combined)
 
+        # ── Paso 2: ¿Hay discrepancia? ──
+        disc_ing = bank_summary.get("deposits") and abs(tx_ing - bank_summary["deposits"]) > tolerance
+        disc_gas = bank_summary.get("withdrawals") and abs(tx_gas - bank_summary["withdrawals"]) > tolerance
+        rescued = 0
+
+        if disc_ing or disc_gas:
+            # Encontrar exactamente qué líneas faltan
+            missing = find_missing_lines(bank_lines, combined, tolerance=0.02)
+
+            if missing:
+                # ── Paso 3: Haiku clasifica SOLO las líneas faltantes ──
+                missing_text = "\n".join(l["raw"] for l in missing)
+                rescue_prompt = f"""Clasifica SOLO estas transacciones bancarias faltantes con el formato IRS Schedule C.
+Son {len(missing)} transacciones que no fueron clasificadas previamente.
+USA LOS MONTOS EXACTOS. NO inventes nada.
+
+{missing_text}"""
+                rescue_result = call_anthropic_text(rescue_prompt, model="claude-haiku-4-5-20251001")
+                combined = combined + "\n" + rescue_result
+                _, _, rescued = parse_tx_totals(rescue_result)
+                tx_ing, tx_gas, tx_count = parse_tx_totals(combined)
+
+        # ── Paso 4: Verificación final ──
         verification = {
             "tx_count": tx_count,
             "tx_ingresos": round(tx_ing, 2),
             "tx_gastos": round(tx_gas, 2),
             "bank_deposits": bank_summary.get("deposits"),
             "bank_withdrawals": bank_summary.get("withdrawals"),
-            "discrepancy_ingresos": None,
-            "discrepancy_gastos": None,
             "ok": True,
-            "warnings": []
+            "warnings": [],
+            "rescued": rescued
         }
 
-        # Check discrepancies
-        tolerance = 0.02  # cents tolerance for rounding
-
         if bank_summary.get("deposits"):
-            diff_ing = abs(tx_ing - bank_summary["deposits"])
-            verification["discrepancy_ingresos"] = round(diff_ing, 2)
-            if diff_ing > tolerance:
+            diff = abs(tx_ing - bank_summary["deposits"])
+            if diff > tolerance:
                 verification["ok"] = False
                 verification["warnings"].append(
-                    f"⚠️ Ingresos: clasificados ${tx_ing:,.2f} vs banco ${bank_summary['deposits']:,.2f} (diferencia ${diff_ing:,.2f})"
+                    f"⚠️ Ingresos: ${tx_ing:,.2f} vs banco ${bank_summary['deposits']:,.2f} (diferencia ${diff:,.2f})"
                 )
 
         if bank_summary.get("withdrawals"):
-            diff_gas = abs(tx_gas - bank_summary["withdrawals"])
-            verification["discrepancy_gastos"] = round(diff_gas, 2)
-            if diff_gas > tolerance:
+            diff = abs(tx_gas - bank_summary["withdrawals"])
+            if diff > tolerance:
                 verification["ok"] = False
                 verification["warnings"].append(
-                    f"⚠️ Gastos: clasificados ${tx_gas:,.2f} vs banco ${bank_summary['withdrawals']:,.2f} (diferencia ${diff_gas:,.2f})"
+                    f"⚠️ Gastos: ${tx_gas:,.2f} vs banco ${bank_summary['withdrawals']:,.2f} (diferencia ${diff:,.2f})"
                 )
 
         return jsonify({
