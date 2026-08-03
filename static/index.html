@@ -201,11 +201,12 @@ function updateTxList(){
 }
 
 function parseTx(text){
+  if(!text || typeof text !== 'string') return [];
   const matches=[...text.matchAll(/\[TX:(\{.*?\})\]/g)];
   return matches.map(m=>{ try{ return JSON.parse(m[1]); }catch(e){ return null; } }).filter(Boolean);
 }
 
-function cleanText(text){ return text.replace(/\[TX:\{.*?\}\]/g,'').trim(); }
+function cleanText(text){ if(!text) return ''; return text.replace(/\[TX:\{.*?\}\]/g,'').trim(); }
 
 function md(text){
   return text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>').replace(/\n/g,'<br>');
@@ -294,8 +295,8 @@ async function processFile(file){
       const res=await fetch('/api/process-pdf',{method:'POST',body:formData});
       const data=await res.json();
       if(data.error) throw new Error(data.error);
-      const raw=data.result;
-      const txs=parseTx(raw);
+      const raw = data.result || data.error || 'Sin respuesta del servidor';
+      const txs = parseTx(raw);
       txs.forEach(tx=>{ if(tx&&tx.monto&&tx.tipo) state.transactions.push({...tx,id:Date.now()+Math.random()}); });
       if(txs.length){ updateSummary(); updateTxList(); }
       setProgress(100);
